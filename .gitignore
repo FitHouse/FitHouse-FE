@@ -43,3 +43,23 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Flutter build directories
+build/
+windows/
+linux/
+macos/
+.android/
+.ios/
+.web/
+
+# Dart/Flutter
+.dart_tool/
+.packages
+
+# VSCode/IDE
+.idea/
+.vscode/
+
+# 테스트 제거 (필요 없을 경우)
+test/widget_test.dart
