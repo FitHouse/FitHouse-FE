@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
-import 'dart:async'; // 타이머
+import 'dart:async';
 
-import 'screens/chatbot_screens.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // ⬅ 추가
+import 'firebase_options.dart';
+
+import 'screens/auth/login_screen.dart'; // ⬅ 추가
+import 'screens/chatbot_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/step_counter_screen.dart';
 import 'screens/community_screen.dart';
@@ -10,7 +15,11 @@ import 'screens/group_screen.dart';
 import 'screens/record_screen.dart';
 import 'constants/colors.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(FitHouseApp());
 }
 
@@ -25,54 +34,83 @@ class FitHouseApp extends StatelessWidget {
         primaryColor: mainGreen,
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
-        appBarTheme: AppBarTheme(
+        appBarTheme: const AppBarTheme(
           backgroundColor: mainGreen,
           foregroundColor: black,
           elevation: 0,
         ),
-        bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
           backgroundColor: white,
           selectedItemColor: naviGreen,
           unselectedItemColor: grey,
           showUnselectedLabels: true,
           type: BottomNavigationBarType.fixed,
         ),
-        textTheme: TextTheme(
+        textTheme: const TextTheme(
           bodyLarge: TextStyle(color: black),
           bodyMedium: TextStyle(color: Colors.black87),
         ),
         fontFamily: 'Pretendard',
         useMaterial3: false,
       ),
-      home: SplashScreen(),
+      home: const SplashScreen(), // ⬅ 스플래시 먼저
     );
   }
 }
 
 class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
   @override
-  _SplashScreenState createState() => _SplashScreenState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Timer(Duration(seconds: 2), () {
+    Timer(const Duration(seconds: 2), () {
+      // ⬅ 스플래시 끝나면 AuthGate로
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => MainScreen()),
+        MaterialPageRoute(builder: (_) => const AuthGate()),
       );
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const Scaffold(
       backgroundColor: Colors.white,
       body: Center(
-        child: Image.asset('assets/images/splash_logo.png', width: 180),
+        child: Image(
+          image: AssetImage('assets/images/splash_logo.png'),
+          width: 180,
+        ),
       ),
+    );
+  }
+}
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (_, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final user = snap.data;
+        if (user == null) {
+          return const LoginScreen(); // ⬅ 로그인 안 되어있으면 로그인 화면
+        }
+        return MainScreen(); // ⬅ 로그인 되어있으면 메인
+      },
     );
   }
 }
@@ -103,25 +141,25 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('핏하우스'),
+        title: const Text('핏하우스'),
         centerTitle: true,
         leading: IconButton(
-          icon: Icon(Icons.group_add),
+          icon: const Icon(Icons.group_add),
           onPressed: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => GroupScreen()),
+              MaterialPageRoute(builder: (_) => GroupScreen()),
             );
           },
           tooltip: '그룹 만들기/참여',
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.fitness_center),
+            icon: const Icon(Icons.fitness_center),
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => RecordScreen()),
+                MaterialPageRoute(builder: (_) => RecordScreen()),
               );
             },
             tooltip: '개인운동 기록',
@@ -133,26 +171,11 @@ class _MainScreenState extends State<MainScreen> {
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat),
-            label: '챗봇',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: '가족/내정보',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.directions_walk),
-            label: '만보기',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.pets),
-            label: '커뮤니티',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: '설정',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.chat), label: '챗봇'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: '가족/내정보'),
+          BottomNavigationBarItem(icon: Icon(Icons.directions_walk), label: '만보기'),
+          BottomNavigationBarItem(icon: Icon(Icons.pets), label: '커뮤니티'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: '설정'),
         ],
       ),
     );
