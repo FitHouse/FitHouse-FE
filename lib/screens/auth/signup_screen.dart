@@ -33,7 +33,6 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
-  // --- Validators ---
   String? _validateName(String? v) {
     final s = v?.trim() ?? '';
     if (s.isEmpty) return '닉네임을 입력하세요';
@@ -79,14 +78,15 @@ class _SignupScreenState extends State<SignupScreen> {
 
     setState(() { _loading = true; _error = null; });
 
-    UserCredential? cred;
     try {
-      cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
+
       final user = cred.user!;
       await user.updateDisplayName(nickname);
+      await user.reload(); // displayName 갱신 반영
 
       final idToken = await user.getIdToken(true);
 
@@ -100,14 +100,11 @@ class _SignupScreenState extends State<SignupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('회원가입 완료!')),
       );
-
       Navigator.pop(context);
     } on FirebaseAuthException catch (e) {
       setState(() => _error = _humanizeAuthError(e));
-
     } catch (e) {
       setState(() => _error = '서버 오류: $e');
-
     } finally {
       if (mounted) setState(() => _loading = false);
     }
