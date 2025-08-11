@@ -45,7 +45,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
 
     try {
-      final url = Uri.parse('http://localhost:8080/chat');
+      // final url = Uri.parse('http://localhost:8080/chat'); // chrome 에뮬레이터에서 로컬 서버에 접근하려면
+      final url = Uri.parse('http://10.0.2.2:8080/chat'); // Android 에뮬레이터에서 로컬 서버에 접근하려면
 
       final response = await http.post(
         url,
