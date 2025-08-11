@@ -19,7 +19,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
 
     try {
-      final url = Uri.parse('http://10.207.17.156:8000/chat'); // 서버 주소 수정 필요
+      final url = Uri.parse('http://localhost:8080/chat');
 
       final response = await http.post(
         url,
