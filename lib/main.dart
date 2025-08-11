@@ -17,9 +17,7 @@ import 'constants/colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(FitHouseApp());
 }
 
@@ -60,6 +58,7 @@ class FitHouseApp extends StatelessWidget {
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
+
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
@@ -173,7 +172,10 @@ class _MainScreenState extends State<MainScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.chat), label: '챗봇'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: '가족/내정보'),
-          BottomNavigationBarItem(icon: Icon(Icons.directions_walk), label: '만보기'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.directions_walk),
+            label: '만보기',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.pets), label: '커뮤니티'),
           BottomNavigationBarItem(icon: Icon(Icons.settings), label: '설정'),
         ],
