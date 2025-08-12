@@ -51,7 +51,7 @@ class FitHouseApp extends StatelessWidget {
         fontFamily: 'Pretendard',
         useMaterial3: false,
       ),
-      home: const SplashScreen(), // ⬅ 스플래시 먼저
+      home: const SplashScreen(),
     );
   }
 }
@@ -68,7 +68,6 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     Timer(const Duration(seconds: 2), () {
-      // ⬅ 스플래시 끝나면 AuthGate로
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -106,9 +105,9 @@ class AuthGate extends StatelessWidget {
         }
         final user = snap.data;
         if (user == null) {
-          return const LoginScreen(); // ⬅ 로그인 안 되어있으면 로그인 화면
+          return const LoginScreen();
         }
-        return MainScreen(); // ⬅ 로그인 되어있으면 메인
+        return MainScreen();
       },
     );
   }
