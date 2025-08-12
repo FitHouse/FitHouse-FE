@@ -24,7 +24,6 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _email.text.trim(),
         password: _pw.text,
       );
-      // 성공 시 AuthGate가 알아서 MainScreen으로 전환됨
     } on FirebaseAuthException catch (e) {
       setState(() => _error = e.message ?? '로그인 실패');
     } finally {
@@ -107,7 +106,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const Text('아직 계정이 없나요?'),
                 TextButton(
                   onPressed: _loading ? null : () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const SignupScreen()));
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const SignupWizardScreen()));
                   },
                   child: const Text('회원가입'),
                 ),
