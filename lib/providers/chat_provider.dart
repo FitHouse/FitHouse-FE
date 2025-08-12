@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart'; // 추가
 import 'dart:convert';
 
 class ChatProvider extends ChangeNotifier {
@@ -14,17 +15,30 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // chrome 에뮬레이터에서 로컬 서버에 접근하려면
-      final url = Uri.parse('http://localhost:8080/chat');
-      // Android 에뮬레이터 사용 시 '10.0.2.2' 사용, 필요에 따라 수정
-      //final url = Uri.parse('http://10.0.2.2:8080/chat');
+      // 1) 현재 사용자 토큰 가져오기
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _messages.add({"bot": "로그인이 필요합니다."});
+        notifyListeners();
+        return;
+      }
+      final idToken = await user.getIdToken(true);
 
+      // 2) 서버 URL 설정
+      final url = Uri.parse('http://localhost:8080/chat');
+      // 안드로이드 에뮬레이터면 아래 사용
+      // final url = Uri.parse('http://10.0.2.2:8080/chat');
+
+      // 3) 요청 보내기 (Authorization 헤더 추가)
       final response = await http.post(
         url,
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $idToken",
+        },
         body: jsonEncode({
           "question": question,
-          "firebaseUid": currentUserUid,
+          "firebaseUid": currentUserUid, // 서버가 헤더에서 uid 추출한다면 이건 제거 가능
         }),
       );
 
@@ -42,6 +56,8 @@ class ChatProvider extends ChangeNotifier {
         }
 
         _messages.add({"bot": botAnswer});
+      } else if (response.statusCode == 401) {
+        _messages.add({"bot": "인증 실패(401). 토큰 확인 필요."});
       } else {
         _messages.add({"bot": "서버 오류 발생: ${response.statusCode}"});
       }
