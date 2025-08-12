@@ -16,6 +16,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
+
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
@@ -25,7 +26,7 @@ android {
         applicationId = "com.example.fithouse"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 23
+        minSdk = 26
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
