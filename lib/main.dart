@@ -4,7 +4,9 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // ⬅ 추가
 import 'firebase_options.dart';
+import 'package:provider/provider.dart';
 
+import 'providers/chat_provider.dart';
 import 'screens/auth/login_screen.dart'; // ⬅ 추가
 import 'screens/chatbot_screen.dart';
 import 'screens/profile_screen.dart';
@@ -18,7 +20,14 @@ import 'constants/colors.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(FitHouseApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
+      ],
+      child: FitHouseApp(), // ← 이제 Provider 안에 감싸짐
+    ),
+  );
 }
 
 class FitHouseApp extends StatelessWidget {
