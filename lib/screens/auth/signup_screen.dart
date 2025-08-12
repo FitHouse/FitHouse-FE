@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../api/auth_api.dart';
+import 'package:fithouse/api/auth_api.dart';
+import 'package:fithouse/models/user_entity.dart';
+import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io' as io;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class SignupWizardScreen extends StatefulWidget {
   const SignupWizardScreen({super.key});
@@ -53,16 +59,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
     _height.dispose();
     _weight.dispose();
     super.dispose();
-  }
-
-  // --- Validators ---
-  String? _validateName(String? v) {
-    final s = v?.trim() ?? '';
-    if (s.isEmpty) return '닉네임을 입력하세요';
-    if (s.length < 2 || s.length > 16) return '닉네임은 2~16자';
-    final ok = RegExp(r'^[a-zA-Z0-9가-힣._-]+$').hasMatch(s);
-    if (!ok) return '영문/숫자/한글/._-만 사용 가능';
-    return null;
   }
 
   String? _validateEmail(String? v) {
@@ -193,7 +189,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
       );
       final user = cred.user!;
       await user.updateDisplayName(nickname);
-      await user.reload(); // displayName 갱신 반영
 
       final String? idToken = await user.getIdToken(true);
       if (idToken == null || idToken.isEmpty) {

@@ -1,23 +1,10 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fithouse/api/personal_workout_api.dart';
+import 'package:fithouse/models/personal_workout.dart';
+import 'package:fithouse/models/paged.dart';
 
-// 플랫폼별 기본 베이스 URL
-const String _baseAndroid = 'http://10.0.2.2:8080';
-const String _baseOther = 'http://localhost:8080';
-String get _baseUrl => Platform.isAndroid ? _baseAndroid : _baseOther;
-
-// 테스트용 사용자 ID (추후 인증 연동 시 교체)
-const int kUserId = 1;
-
-// yyyy-MM-dd 포맷
-String _dateStr(DateTime d) =>
-    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-// 컨디션 표현
+/// ===== mood badge (mood_badge.dart 내용 합침) =====
 String moodEmoji(int? level) {
   switch (level) {
     case 1:
@@ -52,154 +39,8 @@ Widget moodBadge(int? level) {
     child: Text(moodEmoji(level), style: const TextStyle(fontSize: 18)),
   );
 }
+/// ===============================================
 
-// 모델
-class PersonalWorkout {
-  final int workoutId;
-  final int userId;
-  final DateTime date;
-  final String workoutName;
-  final int duration;
-  final int? satisfactionLevel;
-  final String? memo;
-
-  PersonalWorkout({
-    required this.workoutId,
-    required this.userId,
-    required this.date,
-    required this.workoutName,
-    required this.duration,
-    this.satisfactionLevel,
-    this.memo,
-  });
-
-  factory PersonalWorkout.fromJson(Map<String, dynamic> json) {
-    return PersonalWorkout(
-      workoutId: json['workoutId'] as int,
-      userId: json['userId'] as int,
-      date: DateTime.parse(json['date'] as String),
-      workoutName: json['workoutName'] as String,
-      duration: json['duration'] as int,
-      satisfactionLevel: json['satisfactionLevel'] as int?,
-      memo: json['memo'] as String?,
-    );
-  }
-}
-
-class _Paged {
-  final List<PersonalWorkout> content;
-  final int page;
-  final int totalPages;
-
-  _Paged({required this.content, required this.page, required this.totalPages});
-
-  factory _Paged.fromJson(Map<String, dynamic> json) {
-    final items = (json['content'] as List)
-        .map((e) => PersonalWorkout.fromJson(e as Map<String, dynamic>))
-        .toList();
-    return _Paged(
-      content: items,
-      page: json['number'] as int? ?? 0,
-      totalPages: json['totalPages'] as int? ?? 1,
-    );
-  }
-}
-
-// API 클라이언트
-class PersonalWorkoutApi {
-  final http.Client _client;
-  PersonalWorkoutApi({http.Client? client}) : _client = client ?? http.Client();
-
-  Future<_Paged> list({
-    required int userId,
-    int page = 0,
-    int size = 20,
-    DateTime? start,
-    DateTime? end,
-  }) async {
-    final uri = Uri.parse('$_baseUrl/api/personal-workouts').replace(
-      queryParameters: {
-        'userId': '$userId',
-        'page': '$page',
-        'size': '$size',
-        if (start != null) 'start': _dateStr(start),
-        if (end != null) 'end': _dateStr(end),
-      },
-    );
-    final res = await _client.get(uri).timeout(const Duration(seconds: 10));
-    if (res.statusCode != 200) {
-      throw Exception('List failed: ${res.statusCode} ${res.body}');
-    }
-    return _Paged.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
-  }
-
-  Future<PersonalWorkout> create({
-    required int userId,
-    required DateTime date,
-    required String workoutName,
-    required int duration,
-    int? satisfactionLevel,
-    String? memo,
-  }) async {
-    final uri = Uri.parse('$_baseUrl/api/personal-workouts');
-    final body = jsonEncode({
-      'userId': userId,
-      'date': _dateStr(date),
-      'workoutName': workoutName,
-      'duration': duration,
-      if (satisfactionLevel != null) 'satisfactionLevel': satisfactionLevel,
-      if (memo != null && memo.isNotEmpty) 'memo': memo,
-    });
-    final res = await _client
-        .post(uri, headers: {'Content-Type': 'application/json'}, body: body)
-        .timeout(const Duration(seconds: 10));
-    if (res.statusCode != 200 && res.statusCode != 201) {
-      throw Exception('Create failed: ${res.statusCode} ${res.body}');
-    }
-    return PersonalWorkout.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
-  }
-
-  Future<PersonalWorkout> update({
-    required int workoutId,
-    required int userId,
-    DateTime? date,
-    String? workoutName,
-    int? duration,
-    int? satisfactionLevel,
-    String? memo,
-  }) async {
-    final uri = Uri.parse('$_baseUrl/api/personal-workouts/$workoutId')
-        .replace(queryParameters: {'userId': '$userId'});
-    final body = jsonEncode({
-      if (date != null) 'date': _dateStr(date),
-      if (workoutName != null) 'workoutName': workoutName,
-      if (duration != null) 'duration': duration,
-      if (satisfactionLevel != null) 'satisfactionLevel': satisfactionLevel,
-      if (memo != null) 'memo': memo,
-    });
-    final res = await _client
-        .put(uri, headers: {'Content-Type': 'application/json'}, body: body)
-        .timeout(const Duration(seconds: 10));
-    if (res.statusCode != 200) {
-      throw Exception('Update failed: ${res.statusCode} ${res.body}');
-    }
-    return PersonalWorkout.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
-  }
-
-  Future<void> delete({
-    required int workoutId,
-    required int userId,
-  }) async {
-    final uri = Uri.parse('$_baseUrl/api/personal-workouts/$workoutId')
-        .replace(queryParameters: {'userId': '$userId'});
-    final res = await _client.delete(uri).timeout(const Duration(seconds: 10));
-    if (res.statusCode != 200 && res.statusCode != 204) {
-      throw Exception('Delete failed: ${res.statusCode} ${res.body}');
-    }
-  }
-}
-
-// 화면
 class RecordScreen extends StatefulWidget {
   const RecordScreen({super.key});
 
@@ -218,7 +59,6 @@ class _RecordScreenState extends State<RecordScreen> {
   final int _size = 20;
   bool _hasMore = true;
 
-  // 프로필 입력값
   double _heightCm = 170;
   double _weightKg = 65;
   int _age = 25;
@@ -246,7 +86,8 @@ class _RecordScreenState extends State<RecordScreen> {
     if (_loading) return;
     setState(() => _loading = true);
     try {
-      final resp = await api.list(userId: kUserId, page: 0, size: _size);
+      final Paged<PersonalWorkout> resp =
+      await api.list(userId: kUserId, page: 0, size: _size);
       setState(() {
         _items
           ..clear()
@@ -308,7 +149,8 @@ class _RecordScreenState extends State<RecordScreen> {
         _items.insert(0, created);
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('운동 기록이 추가되었습니다.')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('운동 기록이 추가되었습니다.')));
       }
     } catch (e) {
       _showError(e.toString());
@@ -346,7 +188,8 @@ class _RecordScreenState extends State<RecordScreen> {
         if (idx != -1) _items[idx] = updated;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('수정되었습니다.')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('수정되었습니다.')));
       }
     } catch (e) {
       _showError(e.toString());
@@ -381,7 +224,6 @@ class _RecordScreenState extends State<RecordScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  // 상단 헤더: 프로필, 이름(Auth), 키/몸무게/나이/BMI
   Widget _buildHeader() {
     final user = FirebaseAuth.instance.currentUser;
     final displayName = user?.displayName?.trim();
@@ -434,7 +276,6 @@ class _RecordScreenState extends State<RecordScreen> {
     );
   }
 
-  // 프로필 입력 바텀시트
   void _openProfileEditSheet() {
     final heightCtrl = TextEditingController(text: _heightCm.toStringAsFixed(0));
     final weightCtrl = TextEditingController(text: _weightKg.toStringAsFixed(0));
@@ -444,7 +285,8 @@ class _RecordScreenState extends State<RecordScreen> {
       context: context,
       isScrollControlled: true,
       builder: (_) {
-        final padding = MediaQuery.of(context).viewInsets + const EdgeInsets.all(16);
+        final padding =
+            MediaQuery.of(context).viewInsets + const EdgeInsets.all(16);
         return Padding(
           padding: padding,
           child: Column(
@@ -496,7 +338,6 @@ class _RecordScreenState extends State<RecordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // header 1개 포함한 리스트 구성
     return Scaffold(
       appBar: AppBar(title: const Text('개인운동 기록')),
       floatingActionButton: FloatingActionButton(
@@ -511,9 +352,7 @@ class _RecordScreenState extends State<RecordScreen> {
           itemCount: 1 + _items.length + (_hasMore ? 1 : 0),
           separatorBuilder: (_, __) => const SizedBox(height: 8),
           itemBuilder: (context, index) {
-            if (index == 0) {
-              return _buildHeader();
-            }
+            if (index == 0) return _buildHeader();
             final idx = index - 1;
             if (idx >= _items.length) {
               return const Padding(
@@ -522,7 +361,8 @@ class _RecordScreenState extends State<RecordScreen> {
               );
             }
             final item = _items[idx];
-            final memoTail = (item.memo != null && item.memo!.isNotEmpty) ? ' • ${item.memo}' : '';
+            final memoTail =
+            (item.memo != null && item.memo!.isNotEmpty) ? ' • ${item.memo}' : '';
             return ListTile(
               leading: moodBadge(item.satisfactionLevel),
               title: Text('${_dateStr(item.date)} · ${item.workoutName}'),
@@ -540,7 +380,6 @@ class _RecordScreenState extends State<RecordScreen> {
   }
 }
 
-// 생성/수정 결과
 class _EditResult {
   final DateTime date;
   final String workoutName;
@@ -557,7 +396,6 @@ class _EditResult {
   });
 }
 
-// 생성/수정 바텀시트
 class _EditSheet extends StatefulWidget {
   final _EditResult? initial;
   const _EditSheet({this.initial});
@@ -688,7 +526,6 @@ class _EditSheetState extends State<_EditSheet> {
   }
 }
 
-// 간단한 지표 칩
 Widget _metricChip(String label, String value) {
   return Chip(
     label: Column(
@@ -702,3 +539,6 @@ Widget _metricChip(String label, String value) {
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
   );
 }
+
+String _dateStr(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
