@@ -17,9 +17,7 @@ import 'constants/colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(FitHouseApp());
 }
 
@@ -53,13 +51,14 @@ class FitHouseApp extends StatelessWidget {
         fontFamily: 'Pretendard',
         useMaterial3: false,
       ),
-      home: const SplashScreen(), // ⬅ 스플래시 먼저
+      home: const SplashScreen(),
     );
   }
 }
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
+
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
@@ -69,7 +68,6 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     Timer(const Duration(seconds: 2), () {
-      // ⬅ 스플래시 끝나면 AuthGate로
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -107,9 +105,9 @@ class AuthGate extends StatelessWidget {
         }
         final user = snap.data;
         if (user == null) {
-          return const LoginScreen(); // ⬅ 로그인 안 되어있으면 로그인 화면
+          return const LoginScreen();
         }
-        return MainScreen(); // ⬅ 로그인 되어있으면 메인
+        return MainScreen();
       },
     );
   }
@@ -173,7 +171,10 @@ class _MainScreenState extends State<MainScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.chat), label: '챗봇'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: '가족/내정보'),
-          BottomNavigationBarItem(icon: Icon(Icons.directions_walk), label: '만보기'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.directions_walk),
+            label: '만보기',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.pets), label: '커뮤니티'),
           BottomNavigationBarItem(icon: Icon(Icons.settings), label: '설정'),
         ],

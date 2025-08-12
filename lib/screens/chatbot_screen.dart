@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';  // 추가
+
 
 class ChatbotScreen extends StatefulWidget {
   @override
@@ -11,20 +13,48 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   final TextEditingController _controller = TextEditingController();
   List<Map<String, String>> chatMessages = [];
 
+  String? currentUserUid;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 초기 로그인 유저 UID 설정
+    currentUserUid = FirebaseAuth.instance.currentUser?.uid;
+
+    // 로그인 상태 변경 감지 리스너 추가
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      setState(() {
+        currentUserUid = user?.uid;
+      });
+    });
+  }
+
+
   Future<void> sendQuestion(String question) async {
     if (question.trim().isEmpty) return;
+    if (currentUserUid == null) {
+      setState(() {
+        chatMessages.add({"bot": "로그인 상태가 아닙니다. 먼저 로그인 해주세요."});
+      });
+      return;
+    }
 
     setState(() {
       chatMessages.add({"user": question});
     });
 
     try {
-      final url = Uri.parse('http://10.207.17.156:8000/chat'); // 서버 주소 수정 필요
+      // final url = Uri.parse('http://localhost:8080/chat'); // chrome 에뮬레이터에서 로컬 서버에 접근하려면
+      final url = Uri.parse('http://10.0.2.2:8080/chat'); // Android 에뮬레이터에서 로컬 서버에 접근하려면
 
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"question": question}),
+        body: jsonEncode({
+          "question": question,
+          "firebaseUid": currentUserUid,
+        }),
       );
 
       if (response.statusCode == 200) {
@@ -33,7 +63,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
         if (data['response'] is String) {
           botAnswer = data['response'];
-        } else if (data['response'] is Map && data['response'].containsKey('content')) {
+        } else if (data['response'] is Map &&
+            data['response'].containsKey('content')) {
           botAnswer = data['response']['content'];
         } else {
           botAnswer = data['response'].toString();
