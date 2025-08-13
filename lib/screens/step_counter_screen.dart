@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
-import 'package:fithouse/api/http_client.dart'; // 기존에 작성된 authHeaders 함수가 있는 파일
+import 'package:fithouse/api/http_client.dart'; // authHeaders()
 
 class StepCounterScreen extends StatefulWidget {
   const StepCounterScreen({super.key});
@@ -12,12 +12,17 @@ class StepCounterScreen extends StatefulWidget {
   State<StepCounterScreen> createState() => _StepCounterScreenState();
 }
 
-class _StepCounterScreenState extends State<StepCounterScreen> with WidgetsBindingObserver {
+class _StepCounterScreenState extends State<StepCounterScreen>
+    with WidgetsBindingObserver, AutomaticKeepAliveClientMixin<StepCounterScreen> {
   // 네이티브에서 보내는 걸음 이벤트 채널
   static const _eventChannel = EventChannel('step_counter/events');
 
-  // 기본 Base URL (에뮬레이터/기기 구분 안내)
-  // adb reverse를 사용하거나 실제 PC의 IP로 변경
+  @override
+  bool get wantKeepAlive => true;
+
+  // 기본 Base URL
+  // - 에뮬레이터: 10.0.2.2
+  // - 실기기: PC의 사설 IP(예: http://192.168.x.y:8080)
   static const String _defaultAndroid = 'http://localhost:8080';
   static const String _defaultOther   = 'http://localhost:8080';
   String get _initialBaseUrl => Platform.isAndroid ? _defaultAndroid : _defaultOther;
@@ -28,16 +33,26 @@ class _StepCounterScreenState extends State<StepCounterScreen> with WidgetsBindi
   StreamSubscription? _sub;
   Timer? _tick;
 
-  int _steps = 0;
-  int _lastSent = -1;
+  // 센서/서버 상태
+  int _sensorSteps = 0;     // 센서에서 실시간 들어오는 값(증가분 or 누적, 어떤 형태든 안전하게 처리)
+  int _serverSteps = 0;     // 서버(DB)에 저장된 오늘자 값(확정)
+  int _serverAtSync = 0;    // 마지막 서버 동기 시점의 서버 누적값
+  int _sensorAtSync = 0;    // 마지막 서버 동기 시점의 센서 기준값
+  int _lastSent = -1;       // 마지막으로 서버에 반영된 값(중복 전송 방지)
   String? _error;
 
   bool _autoSend = true;
   bool _loading = false;
   String _log = '';
 
-  // 서버에 보낼 사용자 ID (실제 로그인 사용자로 교체/토큰으로 대체 가능)
+  // TODO: 실제 로그인 사용자로 교체
   final int _userId = 6;
+
+  // 현재 누적(서버 기준 + 센서 증가분)
+  int get _currentTotal {
+    final delta = _sensorSteps - _sensorAtSync;
+    return _serverAtSync + (delta > 0 ? delta : 0);
+  }
 
   @override
   void initState() {
@@ -45,16 +60,20 @@ class _StepCounterScreenState extends State<StepCounterScreen> with WidgetsBindi
     WidgetsBinding.instance.addObserver(this);
 
     _baseUrlCtrl.text = _initialBaseUrl;
-    _dio = Dio(BaseOptions(baseUrl: _baseUrlCtrl.text));
+    _dio = Dio(BaseOptions(baseUrl: _baseUrlCtrl.text, responseType: ResponseType.json));
 
+    // 센서 이벤트 수신: 실시간 값만 갱신
     _sub = _eventChannel.receiveBroadcastStream().listen((event) {
       setState(() {
-        _steps = (event as num).toInt();
+        _sensorSteps = (event as num).toInt();
         _error = null;
       });
     }, onError: (e) {
       setState(() => _error = e.toString());
     });
+
+    // 앱 시작 시 서버 저장값 로드
+    _fetchTodayFromServer();
 
     _startAutoTick();
   }
@@ -69,7 +88,7 @@ class _StepCounterScreenState extends State<StepCounterScreen> with WidgetsBindi
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
-      _flush();
+      _flush(); // 백그라운드로 갈 때 한 번 밀어줌(변화 없으면 스킵)
     }
   }
 
@@ -80,33 +99,79 @@ class _StepCounterScreenState extends State<StepCounterScreen> with WidgetsBindi
   }
 
   Future<void> _applyBaseUrl() async {
-    _dio = Dio(BaseOptions(baseUrl: _baseUrlCtrl.text.trim()));
+    _dio = Dio(BaseOptions(baseUrl: _baseUrlCtrl.text.trim(), responseType: ResponseType.json));
     _appendLog('Base URL 변경: ${_baseUrlCtrl.text.trim()}');
     _showSnack('Base URL 적용 완료');
+    // URL 변경 시 최신 서버값 재조회
+    _fetchTodayFromServer();
   }
 
+  // 서버에서 오늘값 조회
+  Future<void> _fetchTodayFromServer() async {
+    try {
+      final headers = await authHeaders();
+      headers['X-User-Id'] = _userId.toString();
+
+      final res = await _dio.get(
+        '/api/steps/today',
+        queryParameters: {'clientAt': DateTime.now().toIso8601String()},
+        options: Options(headers: headers),
+      );
+
+      if (res.statusCode == 200 && res.data != null) {
+        final data = (res.data is String) ? jsonDecode(res.data) : res.data;
+        final steps = (data['steps'] ?? 0) as int;
+
+        setState(() {
+          _serverSteps  = steps;
+          _serverAtSync = steps;         // 동기 기준(서버) 확정
+          _sensorAtSync = _sensorSteps;  // 동기 기준(센서) 확정
+          _lastSent     = steps;
+        });
+
+        _appendLog('GET /api/steps/today 200 $data');
+      } else {
+        _appendLog('GET /api/steps/today ${res.statusCode} (no body)');
+      }
+    } catch (e) {
+      _appendLog('GET 실패: $e');
+    }
+  }
+
+  // 변화 없으면 전송 스킵, 변화 있으면 서버 반영
   Future<void> _flush() async {
-    if (_steps == _lastSent) {
-      _appendLog('전송 생략(값 동일): $_steps');
+    final toSend = _currentTotal;
+
+    // 변화 없으면 전송 스킵
+    if (toSend == _lastSent) {
+      _appendLog('전송 생략(변화 없음): $toSend');
       return;
     }
 
     setState(() => _loading = true);
     try {
-      final nowIso = DateTime.now().toIso8601String();
-
-      // Authorization 헤더와 X-User-Id 헤더를 함께 가져오기
       final headers = await authHeaders();
       headers['X-User-Id'] = _userId.toString();
 
       final res = await _dio.put(
         '/api/steps/today',
-        data: {'steps': _steps, 'clientAt': nowIso},
+        data: {'steps': toSend, 'clientAt': DateTime.now().toIso8601String()},
         options: Options(headers: headers),
       );
-      _lastSent = _steps;
-      _appendLog('PUT /api/steps/today ${res.statusCode} ${res.data}');
-      _showSnack('서버 저장 성공: $_steps');
+
+      final data = (res.data is String) ? jsonDecode(res.data) : res.data;
+      final saved = (data?['steps'] ?? toSend) as int;
+
+      setState(() {
+        _serverSteps  = saved;
+        _lastSent     = saved;
+        // 동기 기준 재설정 → 이후 delta는 여기서부터 다시 계산
+        _serverAtSync = saved;
+        _sensorAtSync = _sensorSteps;
+      });
+
+      _appendLog('PUT /api/steps/today ${res.statusCode} $data');
+      _showSnack('서버 저장 성공: $saved');
     } catch (e) {
       _appendLog('전송 실패: $e');
       _showSnack('서버 저장 실패: $e');
@@ -126,6 +191,7 @@ class _StepCounterScreenState extends State<StepCounterScreen> with WidgetsBindi
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // AutomaticKeepAliveClientMixin
     return Scaffold(
       appBar: AppBar(title: const Text('만보기 연동 테스트')),
       body: AbsorbPointer(
@@ -140,7 +206,7 @@ class _StepCounterScreenState extends State<StepCounterScreen> with WidgetsBindi
                     controller: _baseUrlCtrl,
                     decoration: const InputDecoration(
                       labelText: 'API Base URL',
-                      hintText: '예: http://10.0.2.2:8080 (에뮬레이터)\n실기기는 PC IP 사용 예: http://192.168.x.x:8080',
+                      hintText: '에뮬레이터: http://10.0.2.2:8080\n실기기: PC IP 예) http://192.168.x.x:8080',
                     ),
                     maxLines: 2,
                   ),
@@ -153,15 +219,20 @@ class _StepCounterScreenState extends State<StepCounterScreen> with WidgetsBindi
               ],
             ),
             const SizedBox(height: 16),
+
+            // 표시 영역: 현재 추정값(서버 + 센서 증가분), 서버값, 센서값
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('실시간', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    const Text('오늘 걸음 수', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
-                    Text('걸음 수(오늘): $_steps', style: const TextStyle(fontSize: 28)),
+                    Text('현재 추정(서버+증가분): $_currentTotal', style: const TextStyle(fontSize: 26)),
+                    const SizedBox(height: 6),
+                    Text('서버 저장값: $_serverSteps'),
+                    Text('센서 실시간값: $_sensorSteps'),
                     const SizedBox(height: 8),
                     Text('마지막 전송값: $_lastSent'),
                     if (_error != null) ...[
@@ -172,6 +243,7 @@ class _StepCounterScreenState extends State<StepCounterScreen> with WidgetsBindi
                 ),
               ),
             ),
+
             const SizedBox(height: 12),
             Card(
               child: Padding(
@@ -202,6 +274,7 @@ class _StepCounterScreenState extends State<StepCounterScreen> with WidgetsBindi
                 ),
               ),
             ),
+
             const SizedBox(height: 12),
             const Text('요청 로그', style: TextStyle(fontWeight: FontWeight.w600)),
             Container(
