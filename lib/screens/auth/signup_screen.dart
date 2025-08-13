@@ -125,7 +125,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
     }
   }
 
-  // ---- step 이동 ----
   Future<void> _go(int to) async {
     setState(() => _error = null);
     if (to == _step) return;
