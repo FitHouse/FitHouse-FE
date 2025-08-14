@@ -1,10 +1,13 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:fithouse/api/personal_workout_api.dart';
-import 'package:fithouse/models/personal_workout.dart';
-import 'package:fithouse/models/paged.dart';
+import 'package:http/http.dart' as http;
 
-/// ===== mood badge (mood_badge.dart 내용 합침) =====
+import 'package:fithouse/api/http_client.dart';
+import 'package:fithouse/api/personal_workout_api.dart';
+import 'package:fithouse/models/paged.dart';
+import 'package:fithouse/models/personal_workout.dart';
+
 String moodEmoji(int? level) {
   switch (level) {
     case 1:
@@ -39,7 +42,36 @@ Widget moodBadge(int? level) {
     child: Text(moodEmoji(level), style: const TextStyle(fontSize: 18)),
   );
 }
-/// ===============================================
+
+String roleLabel(String? role) {
+  switch (role) {
+    case 'GRANDMA':
+      return '할머니';
+    case 'GRANDPA':
+      return '할아버지';
+    case 'MOM':
+      return '엄마';
+    case 'DAD':
+      return '아빠';
+    case 'DAUGHTER':
+      return '딸';
+    case 'SON':
+      return '아들';
+    default:
+      return role ?? '역할없음';
+  }
+}
+
+String genderLabel(String? gender) {
+  switch (gender) {
+    case 'MALE':
+      return '남';
+    case 'FEMALE':
+      return '여';
+    default:
+      return gender ?? '-';
+  }
+}
 
 class RecordScreen extends StatefulWidget {
   const RecordScreen({super.key});
@@ -59,13 +91,25 @@ class _RecordScreenState extends State<RecordScreen> {
   final int _size = 20;
   bool _hasMore = true;
 
-  double _heightCm = 170;
-  double _weightKg = 65;
-  int _age = 25;
+  double? _heightCm;
+  double? _weightKg;
+  int? _age;
+
+  String? _name;
+  String? _role;
+  String? _email;
+  String? _gender;
+  DateTime? _birthdate;
+  String? _familyName;
+  bool _detailsOpen = false;
+
+  bool _myInfoLoading = false;
+  String? _myInfoError;
 
   @override
   void initState() {
     super.initState();
+    _loadMyInfo();
     _loadInitial();
     _scroll.addListener(_onScroll);
   }
@@ -77,17 +121,77 @@ class _RecordScreenState extends State<RecordScreen> {
   }
 
   double get _bmi {
-    final h = _heightCm / 100.0;
-    if (h <= 0) return 0;
-    return double.parse(((_weightKg) / (h * h)).toStringAsFixed(1));
+    final h = (_heightCm ?? 0) / 100.0;
+    final w = _weightKg ?? 0;
+    if (h <= 0 || w <= 0) return 0;
+    return double.parse((w / (h * h)).toStringAsFixed(1));
+  }
+
+  int _calcAge(DateTime birth) {
+    final now = DateTime.now();
+    int age = now.year - birth.year;
+    if (now.month < birth.month || (now.month == birth.month && now.day < birth.day)) {
+      age--;
+    }
+    return age;
+  }
+
+  Future<void> _loadMyInfo() async {
+    setState(() {
+      _myInfoLoading = true;
+      _myInfoError = null;
+    });
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        setState(() {
+          _myInfoError = '로그인이 필요합니다.';
+        });
+        return;
+      }
+
+      final uri = Uri.parse('$baseUrl/api/users/me');
+      final res = await httpClient.get(uri, headers: await authHeaders(json: false));
+
+      if (res.statusCode != 200) {
+        setState(() {
+          _myInfoError = '서버 오류: ${res.statusCode}';
+        });
+        return;
+      }
+
+      final jsonMap = jsonDecode(res.body) as Map<String, dynamic>;
+      final info = MyInfo.fromJson(jsonMap);
+
+      setState(() {
+        _name = info.name;
+        _role = info.role;
+        _email = info.email;
+        _gender = info.gender;
+        _birthdate = info.birthdate;
+        _age = info.birthdate != null ? _calcAge(info.birthdate!) : info.age;
+        _heightCm = info.height;
+        _weightKg = info.weight;
+        _familyName = info.familyName;
+      });
+    } catch (_) {
+      setState(() {
+        _myInfoError = '서버 오류';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _myInfoLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadInitial() async {
     if (_loading) return;
     setState(() => _loading = true);
     try {
-      final Paged<PersonalWorkout> resp =
-      await api.list(userId: kUserId, page: 0, size: _size);
+      final Paged<PersonalWorkout> resp = await api.list(page: 0, size: _size);
       setState(() {
         _items
           ..clear()
@@ -108,7 +212,7 @@ class _RecordScreenState extends State<RecordScreen> {
     setState(() => _loading = true);
     try {
       final next = _page + 1;
-      final resp = await api.list(userId: kUserId, page: next, size: _size);
+      final resp = await api.list(page: next, size: _size);
       setState(() {
         _items.addAll(resp.content);
         _page = next;
@@ -138,7 +242,6 @@ class _RecordScreenState extends State<RecordScreen> {
     if (result == null) return;
     try {
       final created = await api.create(
-        userId: kUserId,
         date: result.date,
         workoutName: result.workoutName,
         duration: result.duration,
@@ -176,7 +279,6 @@ class _RecordScreenState extends State<RecordScreen> {
     try {
       final updated = await api.update(
         workoutId: item.workoutId,
-        userId: kUserId,
         date: result.date,
         workoutName: result.workoutName,
         duration: result.duration,
@@ -210,7 +312,7 @@ class _RecordScreenState extends State<RecordScreen> {
     );
     if (ok != true) return;
     try {
-      await api.delete(workoutId: item.workoutId, userId: kUserId);
+      await api.delete(workoutId: item.workoutId);
       setState(() {
         _items.removeWhere((e) => e.workoutId == item.workoutId);
       });
@@ -225,12 +327,39 @@ class _RecordScreenState extends State<RecordScreen> {
   }
 
   Widget _buildHeader() {
-    final user = FirebaseAuth.instance.currentUser;
-    final displayName = user?.displayName?.trim();
-    final emailFallback = user?.email ?? '';
-    final name = (displayName != null && displayName.isNotEmpty)
-        ? displayName
-        : (emailFallback.isNotEmpty ? emailFallback.split('@').first : '사용자');
+    if (_myInfoLoading) {
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+        child: Card(
+          child: SizedBox(
+            height: 96,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        ),
+      );
+    }
+
+    if (_myInfoError != null) {
+      return Card(
+        margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              const Icon(Icons.error_outline),
+              const SizedBox(width: 8),
+              const Expanded(child: Text('프로필을 불러오지 못했습니다. 서버 오류')),
+              TextButton(
+                onPressed: _loadMyInfo,
+                child: const Text('다시 시도'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final titleName = '${_name ?? '-'}(${roleLabel(_role)})';
 
     return Card(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -246,29 +375,50 @@ class _RecordScreenState extends State<RecordScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('$name님', style: Theme.of(context).textTheme.titleMedium),
+                      Text(titleName, style: Theme.of(context).textTheme.titleMedium),
                       Text('개인 지표', style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
                 ),
                 TextButton.icon(
-                  onPressed: _openProfileEditSheet,
-                  icon: const Icon(Icons.edit, size: 18),
-                  label: const Text('편집'),
+                  onPressed: () => setState(() => _detailsOpen = !_detailsOpen),
+                  icon: Icon(_detailsOpen ? Icons.expand_less : Icons.expand_more, size: 18),
+                  label: const Text('상세'),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                _metricChip('키', '${_heightCm.toStringAsFixed(0)}cm'),
+                _metricChip('키', _heightCm != null ? '${_heightCm!.toStringAsFixed(0)}cm' : '-'),
                 const SizedBox(width: 8),
-                _metricChip('몸무게', '${_weightKg.toStringAsFixed(0)}kg'),
+                _metricChip('몸무게', _weightKg != null ? '${_weightKg!.toStringAsFixed(0)}kg' : '-'),
                 const SizedBox(width: 8),
-                _metricChip('나이', '$_age세'),
+                _metricChip('나이', _age != null ? '$_age세' : '-'),
                 const SizedBox(width: 8),
-                _metricChip('BMI', _bmi.toStringAsFixed(1)),
+                _metricChip('BMI', (_heightCm != null && _weightKg != null) ? _bmi.toStringAsFixed(1) : '-'),
               ],
+            ),
+            AnimatedCrossFade(
+              crossFadeState: _detailsOpen ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+              duration: const Duration(milliseconds: 200),
+              firstChild: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Column(
+                  children: [
+                    const Divider(height: 1),
+                    const SizedBox(height: 12),
+                    _detailRow('생년월일', _birthdate != null ? _dateStr(_birthdate!) : '-'),
+                    const SizedBox(height: 8),
+                    _detailRow('성별', genderLabel(_gender)),
+                    const SizedBox(height: 8),
+                    _detailRow('이메일', _email ?? '-'),
+                    const SizedBox(height: 8),
+                    _detailRow('내 가족 이름', _familyName ?? '-'),
+                  ],
+                ),
+              ),
+              secondChild: const SizedBox.shrink(),
             ),
           ],
         ),
@@ -276,17 +426,30 @@ class _RecordScreenState extends State<RecordScreen> {
     );
   }
 
+  Widget _detailRow(String label, String value) {
+    return Row(
+      children: [
+        SizedBox(width: 80, child: Text(label, style: Theme.of(context).textTheme.bodySmall)),
+        const SizedBox(width: 8),
+        Expanded(child: Text(value, style: Theme.of(context).textTheme.bodyMedium)),
+      ],
+    );
+  }
+
   void _openProfileEditSheet() {
-    final heightCtrl = TextEditingController(text: _heightCm.toStringAsFixed(0));
-    final weightCtrl = TextEditingController(text: _weightKg.toStringAsFixed(0));
-    final ageCtrl = TextEditingController(text: '$_age');
+    if (_myInfoError != null || _name == null) {
+      _showError('서버 오류로 프로필을 불러오지 못했습니다.');
+      return;
+    }
+    final heightCtrl = TextEditingController(text: (_heightCm ?? 0).toStringAsFixed(0));
+    final weightCtrl = TextEditingController(text: (_weightKg ?? 0).toStringAsFixed(0));
+    final ageCtrl = TextEditingController(text: (_age ?? 0).toString());
 
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (_) {
-        final padding =
-            MediaQuery.of(context).viewInsets + const EdgeInsets.all(16);
+        final padding = MediaQuery.of(context).viewInsets + const EdgeInsets.all(16);
         return Padding(
           padding: padding,
           child: Column(
@@ -345,7 +508,10 @@ class _RecordScreenState extends State<RecordScreen> {
         child: const Icon(Icons.add),
       ),
       body: RefreshIndicator(
-        onRefresh: _loadInitial,
+        onRefresh: () async {
+          await _loadMyInfo();
+          await _loadInitial();
+        },
         child: ListView.separated(
           controller: _scroll,
           padding: const EdgeInsets.only(bottom: 88),
@@ -542,3 +708,59 @@ Widget _metricChip(String label, String value) {
 
 String _dateStr(DateTime d) =>
     '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+class MyInfo {
+  final int? userId;
+  final String? firebaseUid;
+  final String? name;
+  final String? role;
+  final String? email;
+  final String? gender;
+  final DateTime? birthdate;
+  final int? age;
+  final double? height;
+  final double? weight;
+  final double? bmi;
+  final int? familyId;
+  final String? familyName;
+
+  MyInfo({
+    this.userId,
+    this.firebaseUid,
+    this.name,
+    this.role,
+    this.email,
+    this.gender,
+    this.birthdate,
+    this.age,
+    this.height,
+    this.weight,
+    this.bmi,
+    this.familyId,
+    this.familyName,
+  });
+
+  factory MyInfo.fromJson(Map<String, dynamic> j) {
+    DateTime? bd;
+    final bdStr = j['birthdate'];
+    if (bdStr is String && bdStr.isNotEmpty) {
+      bd = DateTime.tryParse(bdStr);
+    }
+    double? _toD(v) => v == null ? null : (v as num).toDouble();
+    return MyInfo(
+      userId: j['userId'] as int?,
+      firebaseUid: j['firebaseUid'] as String?,
+      name: j['name'] as String?,
+      role: j['role'] as String?,
+      email: j['email'] as String?,
+      gender: j['gender'] as String?,
+      birthdate: bd,
+      age: j['age'] as int?,
+      height: _toD(j['height']),
+      weight: _toD(j['weight']),
+      bmi: _toD(j['bmi']),
+      familyId: j['familyId'] as int?,
+      familyName: j['familyName'] as String?,
+    );
+  }
+}
