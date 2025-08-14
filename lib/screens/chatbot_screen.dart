@@ -23,14 +23,15 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
     // 로그인/로그아웃 상태 변경 감지
     FirebaseAuth.instance.authStateChanges().listen((user) {
+      final previousUid = currentUserUid;
       setState(() {
         currentUserUid = user?.uid;
-
-        if (user != null) {
-          // 새 로그인 시 이전 채팅 초기화
-          context.read<ChatProvider>().clearMessages();
-        }
       });
+
+      // 이전 uid와 다를 때만 메시지 초기화 (새 로그인 시)
+      if (user != null && user.uid != previousUid) {
+        context.read<ChatProvider>().clearMessages();
+      }
     });
   }
 
