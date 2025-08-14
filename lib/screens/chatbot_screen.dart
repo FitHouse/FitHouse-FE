@@ -6,6 +6,7 @@ import '../providers/chat_provider.dart';
 import '../models/chat_message.dart';
 import '../models/exercise_video.dart';
 import 'package:http/http.dart' as http; // '새 대화 시작' 버튼을 위해 필요합니다.
+import 'video_player_dialog.dart'; // 새로 만든 영상 재생 팝업을 import 합니다.
 
 class ChatbotScreen extends StatefulWidget {
   @override
@@ -58,11 +59,16 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         itemBuilder: (context, index) {
           final video = videos[index];
           return GestureDetector(
-            onTap: () async {
-              final uri = Uri.parse(video.url);
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
+            // --- 여기가 핵심 수정 부분입니다 ---
+            onTap: () {
+              // Navigator.push 대신 showDialog를 사용하여 팝업을 띄웁니다.
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  // 새로 만든 VideoPlayerDialog를 반환합니다.
+                  return VideoPlayerDialog(videoUrl: video.url);
+                },
+              );
             },
             child: Container(
               width: 150,
