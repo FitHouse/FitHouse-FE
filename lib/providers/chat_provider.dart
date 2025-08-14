@@ -5,8 +5,11 @@ import 'dart:convert';
 
 class ChatProvider extends ChangeNotifier {
   final List<Map<String, String>> _messages = [];
+  bool _newSessionAvailable = false;
 
   List<Map<String, String>> get messages => List.unmodifiable(_messages);
+  bool get newSessionAvailable => _newSessionAvailable;
+
 
   Future<void> sendMessage(String question, String currentUserUid) async {
     if (question.trim().isEmpty) return;
@@ -55,6 +58,12 @@ class ChatProvider extends ChangeNotifier {
           botAnswer = data['response'].toString();
         }
 
+        //  수정된 부분: 서버 필드 이름에 맞춤
+        if (data['newSessionAvailable'] == true) {
+          _newSessionAvailable = true; // UI에서 버튼 표시
+        }
+
+
         _messages.add({"bot": botAnswer});
       } else if (response.statusCode == 401) {
         _messages.add({"bot": "인증 실패(401). 토큰 확인 필요."});
@@ -75,6 +84,7 @@ class ChatProvider extends ChangeNotifier {
 
   void clearMessages() {
     _messages.clear();
+    _newSessionAvailable = false; // 새 세션 버튼 숨김
     notifyListeners();
   }
 }
