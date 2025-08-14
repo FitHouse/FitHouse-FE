@@ -29,11 +29,8 @@ class PersonalWorkout {
     );
   }
 
-  Map<String, dynamic> toJsonCreate({
-    required int userId,
-  }) {
+  Map<String, dynamic> toJsonCreate() {
     return {
-      'userId': userId,
       'date': _dateStr(date),
       'workoutName': workoutName,
       'duration': duration,
