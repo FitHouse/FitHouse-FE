@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import '../providers/chat_provider.dart';
+import 'package:http/http.dart' as http;
+
 
 class ChatbotScreen extends StatefulWidget {
   @override
@@ -16,32 +18,48 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   void initState() {
     super.initState();
 
+    // 현재 로그인된 UID 초기화
     currentUserUid = FirebaseAuth.instance.currentUser?.uid;
 
+    // 로그인/로그아웃 상태 변경 감지
     FirebaseAuth.instance.authStateChanges().listen((user) {
       setState(() {
         currentUserUid = user?.uid;
+
+        if (user != null) {
+          // 새 로그인 시 이전 채팅 초기화
+          context.read<ChatProvider>().clearMessages();
+        }
       });
     });
   }
 
-  void _sendQuestion() {
+
+  void _sendQuestion() async {
     final question = _controller.text.trim();
     if (question.isEmpty) return;
 
     if (currentUserUid == null) {
       context.read<ChatProvider>().addBotMessage("로그인 상태가 아닙니다. 먼저 로그인 해주세요.");
-      _controller.clear();
+      setState(() { _controller.clear(); });
       return;
     }
 
-    context.read<ChatProvider>().sendMessage(question, currentUserUid!);
-    _controller.clear();
+    // 먼저 입력칸 비우기
+    setState(() {
+      _controller.clear();
+    });
+
+    // 서버에 질문 보내기
+    await context.read<ChatProvider>().sendMessage(question, currentUserUid!);
   }
+
+
 
   @override
   Widget build(BuildContext context) {
-    final chatMessages = context.watch<ChatProvider>().messages;
+    final chatProvider = context.watch<ChatProvider>();
+    final chatMessages = chatProvider.messages;
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -82,6 +100,40 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               },
             ),
           ),
+
+          if (chatProvider.newSessionAvailable)
+            ElevatedButton(
+              onPressed: () async {
+                if (currentUserUid != null) {
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user == null) return;
+                  final idToken = await user.getIdToken(true);
+
+                  // uid를 query param으로
+                  final url = Uri.parse('http://localhost:8080/chat/reset?uid=$currentUserUid');
+
+                  try {
+                    final response = await http.post(
+                      url,
+                      headers: {
+                        "Authorization": "Bearer $idToken", // 인증 헤더 필수
+                      },
+                    );
+
+                    if (response.statusCode == 200) {
+                      chatProvider.clearMessages(); // 프론트 메시지 초기화
+                    } else {
+                      chatProvider.addBotMessage("서버 세션 초기화 실패: ${response.statusCode}");
+                    }
+                  } catch (e) {
+                    chatProvider.addBotMessage("서버 세션 초기화 오류: $e");
+                  }
+                }
+              },
+              child: const Text("새 대화 시작"),
+            ),
+
+
           TextField(
             controller: _controller,
             decoration: const InputDecoration(labelText: "질문 입력"),
