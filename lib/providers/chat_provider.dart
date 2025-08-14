@@ -29,8 +29,8 @@ class ChatProvider extends ChangeNotifier {
       }
       final idToken = await user.getIdToken(true);
 
-      final url = Uri.parse('http://localhost:8080/chat');
-      // final url = Uri.parse('http://10.0.2.2:8080/chat'); // 안드로이드 에뮬레이터용
+      //final url = Uri.parse('http://localhost:8080/chat');
+      final url = Uri.parse('http://10.0.2.2:8080/chat'); // 안드로이드 에뮬레이터용
 
       final response = await http.post(
         url,
