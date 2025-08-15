@@ -1,35 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:firebase_auth/firebase_auth.dart'; // 추가
+import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:convert';
 
-class ChatProvider extends ChangeNotifier {
-  final List<Map<String, String>> _messages = [];
+// 새로 만든 모델들을 import 합니다.
+import '../models/chat_message.dart';
+import '../models/exercise_video.dart';
 
-  List<Map<String, String>> get messages => List.unmodifiable(_messages);
+class ChatProvider extends ChangeNotifier {
+  // 메시지 타입을 Map에서 ChatMessage 모델로 변경합니다.
+  final List<ChatMessage> _messages = [];
+  bool _newSessionAvailable = false;
+
+  List<ChatMessage> get messages => List.unmodifiable(_messages);
+  bool get newSessionAvailable => _newSessionAvailable;
 
   Future<void> sendMessage(String question, String currentUserUid) async {
     if (question.trim().isEmpty) return;
 
-    _messages.add({"user": question});
+    _messages.add(ChatMessage(text: question, isUser: true));
     notifyListeners();
 
     try {
-      // 1) 현재 사용자 토큰 가져오기
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        _messages.add({"bot": "로그인이 필요합니다."});
-        notifyListeners();
+        addBotMessage("로그인이 필요합니다.");
         return;
       }
       final idToken = await user.getIdToken(true);
 
-      // 2) 서버 URL 설정
-      final url = Uri.parse('http://localhost:8080/chat');
-      // 안드로이드 에뮬레이터면 아래 사용
-      // final url = Uri.parse('http://10.0.2.2:8080/chat');
+      //final url = Uri.parse('http://localhost:8080/chat');
+      final url = Uri.parse('http://10.0.2.2:8080/chat'); // 안드로이드 에뮬레이터용
 
-      // 3) 요청 보내기 (Authorization 헤더 추가)
       final response = await http.post(
         url,
         headers: {
@@ -38,43 +40,52 @@ class ChatProvider extends ChangeNotifier {
         },
         body: jsonEncode({
           "question": question,
-          "firebaseUid": currentUserUid, // 서버가 헤더에서 uid 추출한다면 이건 제거 가능
+          "firebaseUid": currentUserUid,
         }),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
 
-        String botAnswer;
-        if (data['response'] is String) {
-          botAnswer = data['response'];
-        } else if (data['response'] is Map &&
-            data['response'].containsKey('content')) {
-          botAnswer = data['response']['content'];
-        } else {
-          botAnswer = data['response'].toString();
+        // --- 여기가 핵심 수정 부분입니다 ---
+        final String botAnswer = data['response'] ?? '응답이 없습니다.';
+        final List<ExerciseVideo> videoList = [];
+
+        // 'videos' 필드가 있고, null이 아니며, 리스트 형태인지 확인합니다.
+        if (data['videos'] != null && data['videos'] is List) {
+          // 리스트의 각 항목(JSON)을 ExerciseVideo 객체로 변환하여 videoList에 추가합니다.
+          for (var videoJson in data['videos']) {
+            videoList.add(ExerciseVideo.fromJson(videoJson));
+          }
         }
 
-        _messages.add({"bot": botAnswer});
-      } else if (response.statusCode == 401) {
-        _messages.add({"bot": "인증 실패(401). 토큰 확인 필요."});
+        // 텍스트 답변과 영상 목록을 모두 포함하는 ChatMessage를 메시지 목록에 추가합니다.
+        _messages.add(ChatMessage(
+          text: botAnswer,
+          isUser: false,
+          videos: videoList,
+        ));
+
+        _newSessionAvailable = data['newSessionAvailable'] ?? false;
+
       } else {
-        _messages.add({"bot": "서버 오류 발생: ${response.statusCode}"});
+        addBotMessage("서버 오류 발생: ${response.statusCode}");
       }
     } catch (e) {
-      _messages.add({"bot": "네트워크 오류 발생: $e"});
+      addBotMessage("네트워크 오류 발생: $e");
     }
 
     notifyListeners();
   }
 
   void addBotMessage(String message) {
-    _messages.add({"bot": message});
+    _messages.add(ChatMessage(text: message, isUser: false));
     notifyListeners();
   }
 
   void clearMessages() {
     _messages.clear();
+    _newSessionAvailable = false;
     notifyListeners();
   }
 }
