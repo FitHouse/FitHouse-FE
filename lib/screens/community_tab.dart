@@ -1,7 +1,12 @@
+// community_tab.dart
 import 'dart:convert';
+import 'package:fithouse/constants/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
+
+import 'community_detail_screen.dart';
+import 'community_compose_screen.dart';
 
 const String kBaseUrl = 'http://marketalert.iptime.org:8080';
 
@@ -26,6 +31,7 @@ class FamilySummary {
   final int monthlyPosts;
   final int memberCount;
   final DateTime? lastPostedAt;
+  final int myMemberId;
 
   const FamilySummary({
     required this.familyId,
@@ -35,6 +41,7 @@ class FamilySummary {
     required this.monthlyPosts,
     required this.memberCount,
     required this.lastPostedAt,
+    required this.myMemberId,
   });
 
   factory FamilySummary.fromJson(Map<String, dynamic> j) => FamilySummary(
@@ -46,8 +53,10 @@ class FamilySummary {
     totalPosts: j['totalPosts'] as int,
     monthlyPosts: j['monthlyPosts'] as int,
     memberCount: j['memberCount'] as int,
-    lastPostedAt:
-    j['lastPostedAt'] == null ? null : DateTime.parse(j['lastPostedAt'] as String),
+    lastPostedAt: j['lastPostedAt'] == null
+        ? null
+        : DateTime.parse(j['lastPostedAt'] as String),
+    myMemberId: j['myMemberId'] as int,
   );
 }
 
@@ -119,7 +128,7 @@ class CommunityRepo {
         .get(uri, headers: await _authHeaders())
         .timeout(const Duration(seconds: 10));
 
-    if (res.statusCode == 401) {
+    if (res.statusCode == 401 || res.statusCode == 403) {
       try {
         res = await _client
             .get(uri, headers: await _authHeaders(forceRefresh: true))
@@ -130,7 +139,7 @@ class CommunityRepo {
   }
 
   Future<FamilySummary> fetchFamilySummary() async {
-    final uri = Uri.parse('$baseUrl/api/me/family/summary');
+    final uri = Uri.parse('$baseUrl/api/community/family');
     final res = await _get(uri);
     if (res.statusCode != 200) {
       throw Exception('summary ${res.statusCode}: ${res.body}');
@@ -145,9 +154,9 @@ class CommunityRepo {
     required int size,
     int? memberId,
   }) async {
-    final uri = Uri.parse('$baseUrl/api/me/family/photos').replace(
+    final uri = Uri.parse('$baseUrl/api/community/list').replace(
       queryParameters: {
-        'familyId' : '$familyId',
+        'familyId': '$familyId',
         'page': '$page',
         'size': '$size',
         if (memberId != null) 'memberId': '$memberId',
@@ -193,6 +202,7 @@ class _CommunityTabState extends State<CommunityTab>
   int _page = 0;
   final int _size = 30;
   int? _selectedMemberId;
+  int? _myMemberId;
 
   @override
   bool get wantKeepAlive => true;
@@ -222,6 +232,7 @@ class _CommunityTabState extends State<CommunityTab>
     try {
       final s = await _repo.fetchFamilySummary();
       _summary = s;
+      _myMemberId = s.myMemberId;
       _page = 0;
       _hasMore = true;
       _feed.clear();
@@ -277,6 +288,24 @@ class _CommunityTabState extends State<CommunityTab>
     await _fetchPage(reset: true);
   }
 
+  Future<void> _goCreate() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CommunityComposeScreen.create(),
+      ),
+    );
+    if (!mounted) return;
+    if (result is Map && result['created'] == true) {
+      await _load();
+      _scroll.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -287,82 +316,135 @@ class _CommunityTabState extends State<CommunityTab>
     final s = _summary!;
     final feed = _feed;
 
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: CustomScrollView(
-        controller: _scroll,
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: _FamilyHeader(
-                familyName: s.familyName,
-                subtitle: '가족 ${s.memberCount}명 · 이번 달 사진 ${s.monthlyPosts}장',
+    return Stack(
+      children: [
+        RefreshIndicator(
+          onRefresh: _load,
+          child: CustomScrollView(
+            controller: _scroll,
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: _FamilyHeader(
+                    familyName: s.familyName,
+                    subtitle: '가족 ${s.memberCount}명 · 이번 달 사진 ${s.monthlyPosts}장',
+                  ),
+                ),
               ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: _MemberCarousel(
-              members: s.members,
-              selectedMemberId: _selectedMemberId,
-              onSelect: _onSelectMember,
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 8)),
-          SliverPadding(
-            padding: const EdgeInsets.all(12),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-                childAspectRatio: 1,
+              SliverToBoxAdapter(
+                child: _MemberCarousel(
+                  members: s.members,
+                  selectedMemberId: _selectedMemberId,
+                  onSelect: _onSelectMember,
+                ),
               ),
-              delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                  final item = feed[index];
-                  final member = s.members.firstWhere(
-                        (m) => m.id == item.authorId,
-                    orElse: () => FamilyMember(id: item.authorId, name: '알수없음'),
-                  );
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () {
+              const SliverToBoxAdapter(child: SizedBox(height: 8)),
+              SliverPadding(
+                padding: const EdgeInsets.all(12),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                    childAspectRatio: 1,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                      final item = feed[index];
+                      final member = s.members.firstWhere(
+                            (m) => m.id == item.authorId,
+                        orElse: () => FamilyMember(
+                          id: item.authorId,
+                          name: '알수없음',
+                        ),
+                      );
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () async {
+                          final args = CommunityDetailArgs(
+                            postId: item.id.toString(),
+                            authorName: member.name,
+                            authorAvatarUrl: member.avatarUrl,
+                            createdAt: item.date,
+                            imageUrls: [item.imageUrl],
+                            content: item.comment ?? '',
+                            isMine: _myMemberId != null &&
+                                item.authorId == _myMemberId,
+                          );
+
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  CommunityDetailScreen(args: args),
+                            ),
+                          );
+
+                          if (!mounted) return;
+                          if (result is Map && result['deleted'] == true) {
+                            setState(() {
+                              _feed.removeWhere((it) =>
+                              it.id.toString() == result['postId']);
+                            });
+                          }
+                        },
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.network(
+                                item.thumbnailUrl,
+                                fit: BoxFit.cover,
+                              ),
+                              Positioned(
+                                right: 6,
+                                bottom: 6,
+                                child: _MiniMemberBadge(member: member),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
                     },
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Image.network(
-                            item.thumbnailUrl,
-                            fit: BoxFit.cover,
-                          ),
-                          Positioned(
-                            right: 6,
-                            bottom: 6,
-                            child: _MiniMemberBadge(member: member),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-                childCount: feed.length,
+                    childCount: feed.length,
+                  ),
+                ),
               ),
+              SliverToBoxAdapter(
+                child: _loadingMore
+                    ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+                    : const SizedBox.shrink(),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            ],
+          ),
+        ),
+
+        // 글쓰기 플로팅 버튼
+        Positioned(
+          right: 16,
+          bottom: 24,
+          child: SafeArea(
+            minimum: const EdgeInsets.only(bottom: 16),
+            child: FloatingActionButton.small(
+              heroTag: 'fab-compose',
+              onPressed: _goCreate,
+              elevation: 0,
+              focusElevation: 1,
+              hoverElevation: 1,
+              highlightElevation: 0,
+              backgroundColor: naviGreen,
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.edit, size: 20),
             ),
           ),
-          SliverToBoxAdapter(
-            child: _loadingMore
-                ? const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Center(child: CircularProgressIndicator()),
-            )
-                : const SizedBox.shrink(),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -395,14 +477,19 @@ class _FamilyHeader extends StatelessWidget {
               children: [
                 Text(
                   familyName,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.8),
+                    color: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.color
+                        ?.withOpacity(0.8),
                   ),
                 ),
               ],
@@ -481,7 +568,9 @@ class _MemberChip extends StatelessWidget {
     Widget avatar = CircleAvatar(
       radius: 18,
       backgroundColor: Colors.white,
-      child: icon != null ? Icon(icon, size: 18, color: Colors.grey.shade700) : null,
+      child: icon != null
+          ? Icon(icon, size: 18, color: Colors.grey.shade700)
+          : null,
     );
 
     if (icon == null && (avatarUrl ?? '').isNotEmpty) {
@@ -512,7 +601,8 @@ class _MemberChip extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
             ),
           ],
         ),
