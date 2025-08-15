@@ -1,10 +1,21 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:fithouse/api/http_client.dart';
+import 'package:fithouse/models/family_daily_record.dart';
 
-// 프로필 화면 UI
-class ProfileScreen extends StatelessWidget {
+// API 연동 버전
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   static const int dailyGoalMinutes = 60;
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  List<FamilyDailyRecord> _family = [];
+  bool _loading = true;
 
   String roleLabel(String role) {
     switch (role) {
@@ -25,64 +36,45 @@ class ProfileScreen extends StatelessWidget {
     }
   }
 
-  final String familyName = '행복한가족';
+  @override
+  void initState() {
+    super.initState();
+    _loadFamily();
+  }
 
-  final _Member _me = const _Member(
-    userId: 1,
-    name: '김하늘',
-    role: 'MOM',
-    imageUrl: null,
-    segments: [
-      RingSegment('걷기', 25, Colors.blue),
-      RingSegment('요가', 10, Colors.teal),
-    ],
-  );
-
-  final List<_Member> _family = const [
-    _Member(
-      userId: 1,
-      name: '김하늘',
-      role: 'MOM',
-      imageUrl: null,
-      segments: [
-        RingSegment('걷기', 25, Colors.blue),
-        RingSegment('요가', 10, Colors.teal),
-      ],
-    ),
-    _Member(
-      userId: 2,
-      name: '박민수',
-      role: 'DAD',
-      imageUrl: null,
-      segments: [
-        RingSegment('자전거', 25, Colors.orange),
-        RingSegment('근력', 15, Colors.purple),
-      ],
-    ),
-    _Member(
-      userId: 3,
-      name: '박소윤',
-      role: 'DAUGHTER',
-      imageUrl: null,
-      segments: [RingSegment('줄넘기', 30, Colors.red)],
-    ),
-    _Member(
-      userId: 4,
-      name: '박도윤',
-      role: 'SON',
-      imageUrl: null,
-      segments: [
-        RingSegment('축구', 40, Colors.green),
-        RingSegment('스트레칭', 5, Colors.indigo),
-      ],
-    ),
-  ];
+  Future<void> _loadFamily() async {
+    try {
+      final uri = Uri.parse('$baseUrl/family/daily-records');
+      final res = await httpClient.get(uri, headers: await authHeaders());
+      if (res.statusCode == 200) {
+        final List data = jsonDecode(res.body);
+        setState(() {
+          _family =
+              data.map((e) => FamilyDailyRecord.fromJson(e)).toList();
+          _loading = false;
+        });
+      } else {
+        throw Exception('가족 기록 불러오기 실패');
+      }
+    } catch (e) {
+      debugPrint('Error: $e');
+      setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final others = _family.where((m) => m.userId != _me.userId).toList();
-    final myTotal = _me.segments.fold<int>(0, (s, e) => s + e.minutes);
+
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_family.isEmpty) {
+      return const Scaffold(body: Center(child: Text('데이터 없음')));
+    }
+
+    final me = _family.first;
+    final others = _family.where((m) => m.userId != me.userId).toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('가족 / 내정보')),
@@ -90,23 +82,28 @@ class ProfileScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            '$familyName (${_family.length}명)',
-            style:
-            theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            '우리 가족 (${_family.length}명)',
+            style: theme.textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
 
-          // 내 프로필 카드 (운동명+시간 표시 + 총 시간 추가)
+          // 내 프로필 카드
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
                   RingAvatar(
-                    segments: _me.segments,
-                    goalMinutes: dailyGoalMinutes,
-                    imageUrl: _me.imageUrl,
+                    segments: me.workoutMinutes.entries
+                        .map((e) => RingSegment(e.key, e.value, _colorFor(e.key)))
+                        .toList(),
+                    goalMinutes: ProfileScreen.dailyGoalMinutes,
+                    imageUrl: me.profileImageUrl != null
+                        ? '$assetBaseUrl${me.profileImageUrl}'
+                        : null,
                     size: 120,
                     stroke: 12,
                     border: const BorderSide(color: Color(0x11000000)),
@@ -116,13 +113,20 @@ class ProfileScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(_me.name, style: theme.textTheme.titleLarge),
+                        Text(me.name, style: theme.textTheme.titleLarge),
                         const SizedBox(height: 4),
-                        Text(roleLabel(_me.role), style: theme.textTheme.bodySmall),
+                        Text(roleLabel(me.role),
+                            style: theme.textTheme.bodySmall),
                         const SizedBox(height: 8),
-                        _Legend(segments: _me.segments),
+                        _Legend(
+                          segments: me.workoutMinutes.entries
+                              .map((e) => RingSegment(
+                              e.key, e.value, _colorFor(e.key)))
+                              .toList(),
+                        ),
                         const SizedBox(height: 8),
-                        Text('$myTotal분', style: const TextStyle(fontSize: 12)),
+                        Text('${me.totalMinutes}분',
+                            style: const TextStyle(fontSize: 12)),
                         const SizedBox(height: 12),
                         FilledButton(
                           onPressed: () {},
@@ -144,7 +148,7 @@ class ProfileScreen extends StatelessWidget {
           ...others.map(
                 (m) => _FamilyTile(
               member: m,
-              goalMinutes: dailyGoalMinutes,
+              goalMinutes: ProfileScreen.dailyGoalMinutes,
               roleText: roleLabel(m.role),
             ),
           ),
@@ -152,10 +156,23 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
   }
+
+  Color _colorFor(String workoutName) {
+    final colors = [
+      Colors.blue,
+      Colors.teal,
+      Colors.orange,
+      Colors.purple,
+      Colors.red,
+      Colors.green,
+      Colors.indigo,
+    ];
+    return colors[workoutName.hashCode % colors.length];
+  }
 }
 
 class _FamilyTile extends StatelessWidget {
-  final _Member member;
+  final FamilyDailyRecord member;
   final int goalMinutes;
   final String roleText;
 
@@ -167,7 +184,7 @@ class _FamilyTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = member.segments.fold<int>(0, (s, e) => s + e.minutes);
+    final total = member.totalMinutes;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -180,9 +197,13 @@ class _FamilyTile extends StatelessWidget {
           child: Row(
             children: [
               RingAvatar(
-                segments: member.segments,
+                segments: member.workoutMinutes.entries
+                    .map((e) => RingSegment(e.key, e.value, _colorFor(e.key)))
+                    .toList(),
                 goalMinutes: goalMinutes,
-                imageUrl: member.imageUrl,
+                imageUrl: member.profileImageUrl != null
+                    ? '$assetBaseUrl${member.profileImageUrl}'
+                    : null,
                 size: 96,
                 stroke: 10,
                 border: const BorderSide(color: Color(0x11000000)),
@@ -192,11 +213,17 @@ class _FamilyTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(member.name, style: Theme.of(context).textTheme.titleMedium),
+                    Text(member.name,
+                        style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 2),
                     Text(roleText, style: Theme.of(context).textTheme.bodySmall),
                     const SizedBox(height: 8),
-                    _Legend(segments: member.segments),
+                    _Legend(
+                      segments: member.workoutMinutes.entries
+                          .map((e) =>
+                          RingSegment(e.key, e.value, _colorFor(e.key)))
+                          .toList(),
+                    ),
                   ],
                 ),
               ),
@@ -207,6 +234,19 @@ class _FamilyTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Color _colorFor(String workoutName) {
+    final colors = [
+      Colors.blue,
+      Colors.teal,
+      Colors.orange,
+      Colors.purple,
+      Colors.red,
+      Colors.green,
+      Colors.indigo,
+    ];
+    return colors[workoutName.hashCode % colors.length];
   }
 }
 
@@ -329,7 +369,8 @@ class RingProgress extends StatelessWidget {
           strokeWidth: stroke,
           background: backgroundColor,
         ),
-        child: centerBuilder == null ? null : Center(child: centerBuilder!(context)),
+        child:
+        centerBuilder == null ? null : Center(child: centerBuilder!(context)),
       ),
     );
   }
@@ -395,19 +436,4 @@ class _MultiSegmentRingPainter extends CustomPainter {
           old.background != background;
 
   double _deg(double d) => d * 3.1415926535897932 / 180.0;
-}
-
-class _Member {
-  final int userId;
-  final String name;
-  final String role;
-  final String? imageUrl;
-  final List<RingSegment> segments;
-  const _Member({
-    required this.userId,
-    required this.name,
-    required this.role,
-    this.imageUrl,
-    required this.segments,
-  });
 }
