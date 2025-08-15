@@ -13,27 +13,29 @@ class LevelInfoPopup extends StatelessWidget {
     ];
 
     return AlertDialog(
-      title: const Text("레벨업 조건"),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: ListView.builder(
-          shrinkWrap: true,
-          itemCount: levels.length,
-          itemBuilder: (context, index) {
-            return Row(
-              children: [
-                Image.asset(
-                  index + 1 > 1 // 현재 레벨보다 높으면 ? 이미지 처리 가능
-                      ? 'assets/images/question.png'
-                      : levels[index]["img"]!,
-                  height: 60,
-                ),
-                const SizedBox(width: 8),
-                Text(levels[index]["text"]!),
-              ],
-            );
-          },
-        ),
+      title: const Text(
+        "레벨업 조건",
+        style: TextStyle(fontWeight: FontWeight.bold),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(levels.length, (index) {
+          bool locked = index + 1 > 1; // 현재 레벨보다 높으면 ? 아이콘
+          return ListTile(
+            leading: Image.asset(
+              locked ? 'assets/images/question.png' : levels[index]["img"]!,
+              height: 40,
+              width: 40,
+              fit: BoxFit.contain,
+            ),
+            title: Text(
+              levels[index]["text"]!,
+              style: const TextStyle(fontSize: 15),
+            ),
+            contentPadding: const EdgeInsets.symmetric(vertical: 4),
+            dense: true,
+          );
+        }),
       ),
       actions: [
         TextButton(

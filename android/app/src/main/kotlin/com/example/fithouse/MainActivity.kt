@@ -1,6 +1,7 @@
-package com.example.fithouse  // ← 실제 패키지명으로 바꿔주세요(Manifest와 동일해야 함)
+package com.example.fithouse // ← 실제 패키지명으로 바꾸세요
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -15,11 +16,19 @@ import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
+import java.time.LocalDate
+
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import java.util.concurrent.TimeUnit
 
 class MainActivity : FlutterActivity(), SensorEventListener {
 
     private val CHANNEL = "step_counter/events"
     private val REQ_ACTIVITY_RECOGNITION = 1001
+    private val PREFS_NAME = "step_prefs"
+    private val KEY_LAST_CUMULATIVE = "last_cumulative"
+    private val KEY_LAST_DATE = "last_date"
 
     private var sensorManager: SensorManager? = null
     private var stepDetector: Sensor? = null
@@ -27,18 +36,20 @@ class MainActivity : FlutterActivity(), SensorEventListener {
 
     private var eventsSink: EventChannel.EventSink? = null
 
-    // DETECTOR용 세션 카운터
-    private var currentSteps = 0
-
-    // COUNTER(누적) 기준값: 세션 시작 시점의 누적값을 저장해 상대값으로 표시
+    private var currentSteps = 0 // TYPE_STEP_DETECTOR 전용
     private var baseCounter: Int? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 기존 센서 초기화 코드
         sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
-        // 센서는 startListening()에서 다시 확인하지만 한 번 캐시해 둠
         stepDetector = sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
-        stepCounter  = sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+        stepCounter = sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+
+        // WorkManager 예약 (15분마다 실행)
+        val workRequest = PeriodicWorkRequestBuilder<StepSyncWorker>(15, TimeUnit.MINUTES).build()
+        WorkManager.getInstance(applicationContext).enqueue(workRequest)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -75,36 +86,31 @@ class MainActivity : FlutterActivity(), SensorEventListener {
     }
 
     private fun startListening() {
-        // 중복 등록 방지
         stopListening()
 
-        // 항상 최신 센서 핸들을 다시 조회(일부 기기에서 상태 변동 대비)
-        val preferCounter  = sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+        val preferCounter = sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
         val preferDetector = sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
 
         val ok = when {
-            // 1) STEP_COUNTER(누적) 우선: 정상 보행에서 제일 안정적
             preferCounter != null -> {
                 stepCounter = preferCounter
-                baseCounter = null        // 새 세션 시작 시 기준값 초기화
+                baseCounter = null
                 currentSteps = 0
-                // 배치 없이 즉시 전달: maxReportLatencyUs = 0
                 sensorManager?.registerListener(
                     this, stepCounter,
-                    20_000,   // samplingPeriodUs ≈ 50Hz
-                    0         // maxReportLatencyUs (no batching)
+                    SensorManager.SENSOR_DELAY_FASTEST,
+                    0
                 )
                 Log.d("Steps", "Using STEP_COUNTER: ${stepCounter?.name} / ${stepCounter?.vendor}")
                 true
             }
 
-            // 2) STEP_DETECTOR(이벤트=1) 대체 경로
             preferDetector != null -> {
                 stepDetector = preferDetector
                 currentSteps = 0
                 sensorManager?.registerListener(
                     this, stepDetector,
-                    20_000,
+                    SensorManager.SENSOR_DELAY_FASTEST,
                     0
                 )
                 Log.d("Steps", "Using STEP_DETECTOR: ${stepDetector?.name} / ${stepDetector?.vendor}")
@@ -142,25 +148,40 @@ class MainActivity : FlutterActivity(), SensorEventListener {
     override fun onSensorChanged(event: SensorEvent?) {
         if (event == null) return
 
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val todayStr = LocalDate.now().toString()
+
         when (event.sensor.type) {
             Sensor.TYPE_STEP_COUNTER -> {
-                // 누적값 → 세션 상대값으로 변환해서 보냄
                 if (event.values.isNotEmpty()) {
                     val cumulative = event.values[0].toInt()
-                    if (baseCounter == null) {
-                        baseCounter = cumulative
-                        // 첫 이벤트는 0으로 보정(바로 0을 보내 사용자가 증가 시작을 확인 가능)
+                    val lastDate = prefs.getString(KEY_LAST_DATE, null)
+                    val lastSaved = prefs.getInt(KEY_LAST_CUMULATIVE, -1)
+
+                    // 날짜가 바뀌었거나 최초 실행이면 초기화
+                    if (lastDate != todayStr || lastSaved == -1) {
+                        prefs.edit()
+                            .putString(KEY_LAST_DATE, todayStr)
+                            .putInt(KEY_LAST_CUMULATIVE, cumulative)
+                            .apply()
                         eventsSink?.success(0)
-                        return
+                    } else {
+                        val diff = cumulative - lastSaved
+                        eventsSink?.success(if (diff >= 0) diff else 0)
                     }
-                    val relative = cumulative - (baseCounter ?: 0)
-                    eventsSink?.success(relative)
                 }
             }
 
             Sensor.TYPE_STEP_DETECTOR -> {
-                // 이벤트마다 1.0f 이상
                 if (event.values.isNotEmpty() && event.values[0] >= 0.5f) {
+                    // 날짜 변경 체크
+                    val lastDate = prefs.getString(KEY_LAST_DATE, null)
+                    if (lastDate != todayStr) {
+                        prefs.edit()
+                            .putString(KEY_LAST_DATE, todayStr)
+                            .apply()
+                        currentSteps = 0
+                    }
                     currentSteps += 1
                     eventsSink?.success(currentSteps)
                 }
@@ -168,7 +189,6 @@ class MainActivity : FlutterActivity(), SensorEventListener {
         }
     }
 
-    // 화면 켜진 동안만 확실히 센서 유지하고 싶다면(선택)
     override fun onResume() {
         super.onResume()
         if (eventsSink != null) startListening()

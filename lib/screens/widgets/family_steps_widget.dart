@@ -40,7 +40,6 @@ class FamilyStepsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('📌 FamilyStepsWidget 빌드: 멤버 수 = ${members.length}');
 
     if (members.isEmpty) {
       return const Center(child: Text('가족 데이터가 없습니다.'));
