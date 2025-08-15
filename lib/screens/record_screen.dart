@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
-import 'package:fithouse/api/http_client.dart';
+import 'package:fithouse/api/http_client.dart'; // baseUrl, httpClient, authHeaders, assetBaseUrl
 import 'package:fithouse/api/personal_workout_api.dart';
 import 'package:fithouse/models/paged.dart';
 import 'package:fithouse/models/personal_workout.dart';
@@ -73,6 +73,15 @@ String genderLabel(String? gender) {
   }
 }
 
+// 이미지 URL은 assetBaseUrl 기준으로 절대 URL로 변환
+String normalizeUrl(String? url) {
+  if (url == null || url.trim().isEmpty) return '';
+  final u = url.trim();
+  if (u.startsWith('http://') || u.startsWith('https://')) return u;
+  if (u.startsWith('/')) return '$assetBaseUrl$u';
+  return '$assetBaseUrl/$u';
+}
+
 class RecordScreen extends StatefulWidget {
   const RecordScreen({super.key});
 
@@ -105,6 +114,8 @@ class _RecordScreenState extends State<RecordScreen> {
 
   bool _myInfoLoading = false;
   String? _myInfoError;
+
+  String? _profileImageUrl;
 
   @override
   void initState() {
@@ -150,7 +161,7 @@ class _RecordScreenState extends State<RecordScreen> {
         return;
       }
 
-      final uri = Uri.parse('$baseUrl/api/users/me');
+      final uri = Uri.parse('$baseUrl/api/users/me'); // API는 기존 baseUrl 사용
       final res = await httpClient.get(uri, headers: await authHeaders(json: false));
 
       if (res.statusCode != 200) {
@@ -173,6 +184,7 @@ class _RecordScreenState extends State<RecordScreen> {
         _heightCm = info.height;
         _weightKg = info.weight;
         _familyName = info.familyName;
+        _profileImageUrl = normalizeUrl(info.profileImageUrl); // 이미지는 assetBaseUrl로 조합
       });
     } catch (_) {
       setState(() {
@@ -326,6 +338,34 @@ class _RecordScreenState extends State<RecordScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  Widget _avatar() {
+    final url = _profileImageUrl;
+    if (url != null && url.trim().isNotEmpty) {
+      return CircleAvatar(
+        radius: 28,
+        backgroundColor: Colors.grey.shade200,
+        child: ClipOval(
+          child: Image.network(
+            url,
+            width: 56,
+            height: 56,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => const Icon(Icons.person, size: 28),
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return const SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              );
+            },
+          ),
+        ),
+      );
+    }
+    return const CircleAvatar(radius: 28, child: Icon(Icons.person));
+  }
+
   Widget _buildHeader() {
     if (_myInfoLoading) {
       return const Padding(
@@ -369,7 +409,7 @@ class _RecordScreenState extends State<RecordScreen> {
           children: [
             Row(
               children: [
-                const CircleAvatar(radius: 28, child: Icon(Icons.person)),
+                _avatar(),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -433,69 +473,6 @@ class _RecordScreenState extends State<RecordScreen> {
         const SizedBox(width: 8),
         Expanded(child: Text(value, style: Theme.of(context).textTheme.bodyMedium)),
       ],
-    );
-  }
-
-  void _openProfileEditSheet() {
-    if (_myInfoError != null || _name == null) {
-      _showError('서버 오류로 프로필을 불러오지 못했습니다.');
-      return;
-    }
-    final heightCtrl = TextEditingController(text: (_heightCm ?? 0).toStringAsFixed(0));
-    final weightCtrl = TextEditingController(text: (_weightKg ?? 0).toStringAsFixed(0));
-    final ageCtrl = TextEditingController(text: (_age ?? 0).toString());
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) {
-        final padding = MediaQuery.of(context).viewInsets + const EdgeInsets.all(16);
-        return Padding(
-          padding: padding,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('개인 정보 입력', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 12),
-              TextField(
-                controller: heightCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: '키(cm)'),
-              ),
-              TextField(
-                controller: weightCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: '몸무게(kg)'),
-              ),
-              TextField(
-                controller: ageCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: '나이'),
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () {
-                  final h = double.tryParse(heightCtrl.text.trim());
-                  final w = double.tryParse(weightCtrl.text.trim());
-                  final a = int.tryParse(ageCtrl.text.trim());
-                  if (h == null || h <= 0 || w == null || w <= 0 || a == null || a <= 0) {
-                    _showError('값을 올바르게 입력하세요.');
-                    return;
-                  }
-                  setState(() {
-                    _heightCm = h;
-                    _weightKg = w;
-                    _age = a;
-                  });
-                  Navigator.pop(context);
-                },
-                child: const Text('저장'),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
     );
   }
 
@@ -723,6 +700,7 @@ class MyInfo {
   final double? bmi;
   final int? familyId;
   final String? familyName;
+  final String? profileImageUrl;
 
   MyInfo({
     this.userId,
@@ -738,6 +716,7 @@ class MyInfo {
     this.bmi,
     this.familyId,
     this.familyName,
+    this.profileImageUrl,
   });
 
   factory MyInfo.fromJson(Map<String, dynamic> j) {
@@ -761,6 +740,7 @@ class MyInfo {
       bmi: _toD(j['bmi']),
       familyId: j['familyId'] as int?,
       familyName: j['familyName'] as String?,
+      profileImageUrl: j['profileImageUrl'] as String?,
     );
   }
 }
