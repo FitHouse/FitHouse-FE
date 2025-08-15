@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import '../korean_regions.dart';
 import '../models/park.dart';
-import '../lib/korean_regions.dart';
+
 
 class WalkTab extends StatefulWidget {
   const WalkTab({super.key});
@@ -25,6 +26,10 @@ class _WalkTabState extends State<WalkTab> {
   // 공원 데이터를 서버에 요청하는 함수
   Future<void> _fetchParks() async {
     if (_selectedSido == null || _selectedSigungu == null) {
+      // 사용자에게 지역을 선택하라는 메시지를 보여줄 수 있습니다.
+      setState(() {
+        _message = '시/도와 시/군/구를 모두 선택해주세요.';
+      });
       return;
     }
 
@@ -55,7 +60,7 @@ class _WalkTabState extends State<WalkTab> {
       }
     } catch (e) {
       setState(() {
-        _message = '네트워크 오류가 발생했습니다.';
+        _message = '네트워크 오류가 발생했습니다: $e';
       });
     } finally {
       setState(() {
@@ -120,7 +125,7 @@ class _WalkTabState extends State<WalkTab> {
 
           // 2. 검색 버튼
           ElevatedButton(
-            onPressed: _fetchParks,
+            onPressed: (_selectedSido != null && _selectedSigungu != null) ? _fetchParks : null, // 지역이 모두 선택되어야 버튼 활성화
             child: const Text('산책로 검색'),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(double.infinity, 48),
