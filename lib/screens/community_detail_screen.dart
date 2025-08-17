@@ -239,8 +239,8 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateText =
-        '${createdAt.year}.${_two(createdAt.month)}.${_two(createdAt.day)}';
+    final dt = createdAt.toLocal();
+    final dateText = '${dt.year}.${_two(dt.month)}.${_two(dt.day)} ${_two(dt.hour)}:${_two(dt.minute)}';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
