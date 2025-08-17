@@ -160,6 +160,7 @@ class CommunityRepo {
         'page': '$page',
         'size': '$size',
         if (memberId != null) 'memberId': '$memberId',
+        'sort' : 'date,desc',
       },
     );
 
