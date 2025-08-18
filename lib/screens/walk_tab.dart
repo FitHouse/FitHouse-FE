@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-import '../services/region_service.dart';
+import '../data/hardcoded_regions.dart';
 import '../models/park.dart';
+
+// ✅ 정의된 기본 URL
+// const String kBaseUrl = 'http://10.0.2.2:8080'; // 안드로이드 에뮬레이터용
+const String kBaseUrl = 'http://localhost:8080'; // 데스크탑
 
 class WalkTab extends StatefulWidget {
   const WalkTab({super.key});
@@ -13,8 +17,6 @@ class WalkTab extends StatefulWidget {
 }
 
 class _WalkTabState extends State<WalkTab> {
-  final RegionService _regionService = RegionService();
-
   List<String> _sidoList = [];
   Map<String, Map<String, List<String>>> _regionHierarchy = {};
 
@@ -26,23 +28,14 @@ class _WalkTabState extends State<WalkTab> {
   List<String> _dongList = [];
 
   List<Park> _parkList = [];
-  bool _isRegionsLoading = true;
   bool _isParksLoading = false;
   String _message = '지역을 선택하고 검색 버튼을 눌러주세요.';
 
   @override
   void initState() {
     super.initState();
-    _loadRegionData();
-  }
-
-  Future<void> _loadRegionData() async {
-    final data = await _regionService.loadRegionsFromCsv();
-    setState(() {
-      _sidoList = data.sidoList;
-      _regionHierarchy = data.regionHierarchy;
-      _isRegionsLoading = false;
-    });
+    _sidoList = hardcodedSidoList;
+    _regionHierarchy = hardcodedRegionHierarchy;
   }
 
   Future<void> _fetchParks() async {
@@ -57,7 +50,11 @@ class _WalkTabState extends State<WalkTab> {
     final searchAddress = '$_selectedSido $_selectedSigungu $_selectedDong';
 
     try {
-      final url = Uri.parse('http://10.0.2.2:8080/api/parks?address=${Uri.encodeComponent(searchAddress)}');
+      // ✅ 수정된 부분: 하드코딩된 IP 대신 kBaseUrl 상수를 사용합니다.
+      final url = Uri.parse('$kBaseUrl/api/parks?address=${Uri.encodeComponent(searchAddress)}');
+
+      print('Requesting to: $url'); // 디버깅을 위해 호출되는 URL을 출력합니다.
+
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -67,10 +64,10 @@ class _WalkTabState extends State<WalkTab> {
           if (_parkList.isEmpty) _message = '해당 지역에 공원 정보가 없습니다.';
         });
       } else {
-        setState(() => _message = '오류: ${response.statusCode}');
+        setState(() => _message = '서버 오류: ${response.statusCode}');
       }
     } catch (e) {
-      setState(() => _message = '네트워크 오류. API 서버를 확인해주세요.');
+      setState(() => _message = '네트워크 오류. 서버 주소 또는 인터넷 연결을 확인해주세요.');
     } finally {
       setState(() => _isParksLoading = false);
     }
@@ -78,9 +75,6 @@ class _WalkTabState extends State<WalkTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isRegionsLoading) {
-      return const Center(child: CircularProgressIndicator(color: Colors.green));
-    }
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
