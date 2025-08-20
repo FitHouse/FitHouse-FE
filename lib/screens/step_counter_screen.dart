@@ -7,6 +7,167 @@ import 'package:fithouse/screens/widgets/family_steps_widget.dart';
 import 'package:fithouse/screens/widgets/level_info_popup.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
+
+class WaveProgressBar extends StatefulWidget {
+  final double progress; // 0.0 ~ 1.0
+  final Color color;
+  final double height;
+
+  const WaveProgressBar({
+    super.key,
+    required this.progress,
+    this.color = Colors.blue,
+    this.height = 20,
+  });
+
+  @override
+  State<WaveProgressBar> createState() => _WaveProgressBarState();
+}
+
+class _WaveProgressBarState extends State<WaveProgressBar>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: CustomPaint(
+            size: Size(double.infinity, widget.height),
+            painter: _WavePainter(
+              progress: widget.progress,
+              wavePhase: _controller.value * 2 * math.pi,
+              color: widget.color,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _WavePainter extends CustomPainter {
+  final double progress;
+  final double wavePhase;
+  final Color color;
+
+  _WavePainter({
+    required this.progress,
+    required this.wavePhase,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final fillWidth = size.width * progress;
+    final baseHeight = size.height - (size.height * progress);
+
+    // ✅ 첫 번째 물결
+    final paint1 = Paint()..color = color.withOpacity(0.6);
+    final path1 = Path()..moveTo(0, size.height);
+
+    final waveHeight = 8.0; // 진폭
+    final waveLength = size.width / 1.5; // 파장
+
+    for (double x = 0; x <= fillWidth; x++) {
+      final y = baseHeight +
+          waveHeight * math.sin((2 * math.pi / waveLength) * x + wavePhase);
+      path1.lineTo(x, y);
+    }
+    path1.lineTo(fillWidth, size.height);
+    path1.close();
+
+    // ✅ 두 번째 물결 (phase + π/2)
+    final paint2 = Paint()..color = color.withOpacity(0.3);
+    final path2 = Path()..moveTo(0, size.height);
+
+    for (double x = 0; x <= fillWidth; x++) {
+      final y = baseHeight +
+          waveHeight *
+              0.6 * // 두 번째는 살짝 작게
+              math.sin((2 * math.pi / waveLength) * x + wavePhase + math.pi / 2);
+      path2.lineTo(x, y);
+    }
+    path2.lineTo(fillWidth, size.height);
+    path2.close();
+
+    canvas.drawPath(path1, paint1);
+    canvas.drawPath(path2, paint2);
+  }
+
+  @override
+  bool shouldRepaint(covariant _WavePainter oldDelegate) => true;
+}
+
+class GradientCirclePainter extends CustomPainter {
+  final double progress;
+
+  GradientCirclePainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final strokeWidth = 14.0;
+    final rect = Offset.zero & size;
+
+    // ✅ 초록 계열 gradient
+    final gradient = SweepGradient(
+      startAngle: -math.pi / 2,
+      endAngle: 1.5 * math.pi,
+      colors: [
+        Colors.green.shade300,
+        Colors.green.shade500,
+        Colors.green.shade700,
+      ],
+    );
+
+    final paint = Paint()
+      ..shader = gradient.createShader(rect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    final bgPaint = Paint()
+      ..color = Colors.grey.shade200
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - strokeWidth) / 2;
+
+    // 배경 원
+    canvas.drawCircle(center, radius, bgPaint);
+
+    // 주간 누적 진행률
+    final sweepAngle = 2 * math.pi * progress;
+    canvas.drawArc(Rect.fromCircle(center: center, radius: radius),
+        -math.pi / 2, sweepAngle, false, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant GradientCirclePainter oldDelegate) {
+    return oldDelegate.progress != progress;
+  }
+}
 
 const String kBaseUrl = 'http://marketalert.iptime.org:8080';
 
@@ -15,6 +176,7 @@ class StepCounterRepo {
   final http.Client _client;
   StepCounterRepo({required this.baseUrl, http.Client? client})
       : _client = client ?? http.Client();
+
 
   Future<Map<String, String>> _authHeaders({bool forceRefresh = false}) async {
     final user = FirebaseAuth.instance.currentUser;
@@ -129,6 +291,7 @@ class _StepCounterScreenState extends State<StepCounterScreen>
   static const _eventChannel = EventChannel('step_counter/events');
   StreamSubscription? _sub;
   Timer? _tick;
+  Timer? _midnightTimer; // ✅ 자정 새로고침 타이머
   int _sensorStepsNow = 0;
 
   int _startServerSteps = 0;
@@ -152,23 +315,12 @@ class _StepCounterScreenState extends State<StepCounterScreen>
     _loadAll().then((_) {
       _startSensorListening();
       _startAutoTick();
+      _scheduleMidnightRefresh(); // ✅ 자정 새로고침 예약
     });
   }
 
   @override
-  void deactivate() {
-    // 탭 전환 시 상태 유지될 때만 저장, dispose로 이어질 경우 중복 방지
-    if (!_hasFlushedThisCycle && mounted) {
-      debugPrint("📌 탭 전환(상태 유지) → 서버 저장");
-      _flush(sync: true);
-      _hasFlushedThisCycle = true;
-    }
-    super.deactivate();
-  }
-
-  @override
   void dispose() {
-    // 화면 완전 종료 시 한 번만 저장
     if (!_hasFlushedThisCycle) {
       debugPrint("📌 화면 dispose → 서버 저장");
       _flush(sync: true);
@@ -177,7 +329,22 @@ class _StepCounterScreenState extends State<StepCounterScreen>
     WidgetsBinding.instance.removeObserver(this);
     _tick?.cancel();
     _sub?.cancel();
+    _midnightTimer?.cancel(); // ✅ 타이머 정리
     super.dispose();
+  }
+
+  // ✅ 자정 새로고침 예약 함수
+  void _scheduleMidnightRefresh() {
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final duration = tomorrow.difference(now);
+
+    _midnightTimer?.cancel(); // 중복 예약 방지
+    _midnightTimer = Timer(duration, () async {
+      debugPrint("🌙 자정 도달 → 주간 데이터 새로고침");
+      await _fetchSteps(); // 주간 합계 최신화
+      _scheduleMidnightRefresh(); // 다음 자정도 예약
+    });
   }
 
   Future<void> _loadAll() async {
@@ -342,6 +509,11 @@ class _StepCounterScreenState extends State<StepCounterScreen>
         ? _family.map((f) => f.week).reduce((a, b) => a + b)
         : todaySteps;
 
+    // ✅ 가족 전체 오늘 걸음 합산
+    final totalTodaySteps = _family.isNotEmpty
+        ? _family.map((f) => f.today).reduce((a, b) => a + b)
+        : todaySteps;
+
     const stepSize = 1000;
     final steppedWeeklyProgress =
     (weeklyGoal > 0 ? ((weeklySteps ~/ stepSize) * stepSize) / weeklyGoal : 0.0)
@@ -370,7 +542,7 @@ class _StepCounterScreenState extends State<StepCounterScreen>
               borderRadius: BorderRadius.circular(20),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -380,10 +552,10 @@ class _StepCounterScreenState extends State<StepCounterScreen>
                       const Text(
                         "주간 진행률",
                         style: TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.bold),
+                            fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.info_outline, size: 28),
+                        icon: const Icon(Icons.info_outline, size: 24),
                         onPressed: () {
                           showDialog(
                             context: context,
@@ -393,35 +565,37 @@ class _StepCounterScreenState extends State<StepCounterScreen>
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   SizedBox(
-                    height: 240,
-                    width: 240,
+                    height: 180,
+                    width: 180,
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
                         SizedBox(
-                          height: 240,
-                          width: 240,
+                          height: 180,
+                          width: 180,
                           child: TweenAnimationBuilder<double>(
-                            tween: Tween(
-                                begin: 0.0, end: steppedWeeklyProgress),
+                            tween: Tween(begin: 0.0, end: steppedWeeklyProgress),
                             duration: const Duration(milliseconds: 800),
                             curve: Curves.easeOut,
                             builder: (context, value, child) {
-                              return CircularProgressIndicator(
-                                value: value,
-                                strokeWidth: 18,
-                                strokeCap: StrokeCap.round,
-                                backgroundColor: Colors.grey.shade200,
-                                color: getProgressColor(value),
+                              return CustomPaint(
+                                painter: GradientCirclePainter(progress: value),
+                                child: Center(
+                                  child: SizedBox(
+                                    height: 140,
+                                    width: 140,
+                                    child: Image.asset(levelImage, fit: BoxFit.contain),
+                                  ),
+                                ),
                               );
                             },
                           ),
                         ),
                         SizedBox(
-                          height: 180,
-                          width: 180,
+                          height: 140,
+                          width: 140,
                           child: Image.asset(
                             levelImage,
                             fit: BoxFit.contain,
@@ -430,33 +604,26 @@ class _StepCounterScreenState extends State<StepCounterScreen>
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Text(
                     "이번 주 $weeklySteps / $weeklyGoal 걸음",
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: SizedBox(
-                      height: 16,
-                      child: LinearProgressIndicator(
-                        value: _family.isNotEmpty
-                            ? (_family.map((f) => f.today).reduce((a, b) =>
-                        a + b) /
-                            todayGoalWithFamily)
-                            : 0.0,
-                        backgroundColor: Colors.grey.shade200,
-                        color: Colors.green,
-                      ),
-                    ),
+                  const SizedBox(height: 12),
+                  WaveProgressBar(
+                    progress: _family.isNotEmpty
+                        ? (totalTodaySteps / todayGoalWithFamily).clamp(0.0, 1.0)
+                        : 0.0,
+                    color: Colors.green,
+                    height: 20, // 막대 두께
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
-                    "오늘 $todaySteps / $todayGoalWithFamily 걸음",
+                    // ✅ 여기서 totalTodaySteps 사용!
+                    "오늘 $totalTodaySteps / $todayGoalWithFamily 걸음",
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -467,6 +634,7 @@ class _StepCounterScreenState extends State<StepCounterScreen>
             ),
           ),
           Expanded(
+            // ✅ 여기는 개인별 걸음 수 그대로
             child: FamilyStepsWidget(
               members: _family,
               range: range,
