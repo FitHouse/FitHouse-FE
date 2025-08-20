@@ -476,6 +476,7 @@ class _RecordScreenState extends State<RecordScreen> {
                     ],
                   ),
                 ),
+                if(widget.userId==null)
                 TextButton.icon(
                   onPressed: () =>
                       setState(() => _detailsOpen = !_detailsOpen),

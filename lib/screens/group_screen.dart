@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
 
 const String _baseAndroid = 'http://10.0.2.2:8080';
 const String _baseOther = 'http://localhost:8080';
@@ -23,8 +22,6 @@ class _GroupScreenState extends State<GroupScreen> {
   final _inviteCodeCtrl = TextEditingController();
 
   bool _loading = false;
-  bool _showDebug = false; // 개발용 로그 패널 토글
-  String _log = '';
   Map<String, dynamic>? _mine;
   String? _createdInviteCode;
 
@@ -57,20 +54,12 @@ class _GroupScreenState extends State<GroupScreen> {
     };
   }
 
-  void _appendLog(String s) {
-    if (!kDebugMode) return;
-    setState(() {
-      _log = '${DateTime.now().toIso8601String()}  $s\n$_log';
-    });
-  }
-
   Future<void> _fetchMine() async {
     setState(() => _loading = true);
     try {
       final headers = await _authHeader();
       final url = Uri.parse('$_baseUrl/family/mine');
       final res = await http.get(url, headers: headers);
-      _appendLog('GET /family/mine ${res.statusCode} ${res.body}');
       if (res.statusCode == 200) {
         final json = jsonDecode(res.body) as Map<String, dynamic>;
         setState(() => _mine = json);
@@ -105,7 +94,6 @@ class _GroupScreenState extends State<GroupScreen> {
             : _familyCommentCtrl.text.trim(),
       });
       final res = await http.post(url, headers: headers, body: body);
-      _appendLog('POST /family ${res.statusCode} ${res.body}');
 
       if (res.statusCode == 200) {
         final json = jsonDecode(res.body);
@@ -117,7 +105,6 @@ class _GroupScreenState extends State<GroupScreen> {
         _showSnack('가족 생성 완료');
         await _fetchMine();
       } else {
-        _appendLog('가족 생성 실패 응답: ${res.body}');
         _showSnack('가족 생성 실패: ${res.statusCode}\n${res.body}');
       }
     } catch (e) {
@@ -143,12 +130,10 @@ class _GroupScreenState extends State<GroupScreen> {
       final url = Uri.parse('$_baseUrl/family/join');
       final body = jsonEncode({'code': code});
       final res = await http.post(url, headers: headers, body: body);
-      _appendLog('POST /family/join ${res.statusCode} ${res.body}');
       if (res.statusCode == 200) {
         _showSnack('가족 가입 완료');
         await _fetchMine();
       } else {
-        _appendLog('가족 가입 실패 응답: ${res.body}');
         _showSnack('가족 가입 실패: ${res.statusCode}\n${res.body}');
       }
     } catch (e) {
@@ -165,27 +150,22 @@ class _GroupScreenState extends State<GroupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final familyId = _mine?['familyId'];
     final familyName = _mine?['familyName'];
+    final inviteCode = _mine?['inviteCode'];
     final members = (_mine?['members'] as List?) ?? const [];
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('가족'),
         centerTitle: true,
-        actions: [
-          if (kDebugMode)
-            IconButton(
-              tooltip: _showDebug ? '개발용 로그 숨기기' : '개발용 로그 보기',
-              onPressed: () => setState(() => _showDebug = !_showDebug),
-              icon: const Icon(Icons.bug_report_outlined),
-            ),
-        ],
+        //backgroundColor: Colors.green,
+        //foregroundColor: Colors.white,
       ),
       body: Stack(
         children: [
           RefreshIndicator(
             onRefresh: _fetchMine,
+            color: Colors.green,
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
@@ -193,137 +173,136 @@ class _GroupScreenState extends State<GroupScreen> {
                   title: '내 가족 정보',
                   trailing: IconButton(
                     onPressed: _fetchMine,
-                    icon: const Icon(Icons.refresh),
+                    icon: const Icon(Icons.refresh, color: Colors.green),
                     tooltip: '새로고침',
                   ),
                 ),
                 Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 1,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 2,
                   child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: familyId == null
+                    padding: const EdgeInsets.all(16),
+                    child: (_mine?['familyId'] == null)
                         ? const _EmptyFamilyView()
                         : _FamilyInfoView(
-                      familyId: familyId,
                       familyName: familyName ?? '',
+                      inviteCode: inviteCode,
                       members: members,
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 20),
-                _SectionHeader(title: '가족 생성'),
-                Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 1,
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      children: [
-                        TextField(
-                          controller: _familyNameCtrl,
-                          decoration: const InputDecoration(
-                            labelText: '가족 이름',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _familyCommentCtrl,
-                          decoration: const InputDecoration(
-                            labelText: '가족 메모(선택)',
-                            border: OutlineInputBorder(),
-                          ),
-                          maxLines: 2,
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: _inFamily ? null : _createFamily,
-                            icon: const Icon(Icons.group_add),
-                            label: const Text('가족 생성'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                if (_createdInviteCode != null) ...[
-                  const SizedBox(height: 12),
+                // 가족이 없는 경우에만 생성/가입 UI 보여줌
+                if (!_inFamily) ...[
+                  const SizedBox(height: 24),
+                  _SectionHeader(title: '가족 생성'),
                   Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    elevation: 1,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 2,
                     child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Row(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
                         children: [
-                          const Icon(Icons.vpn_key),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: SelectableText(
-                              _createdInviteCode!,
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          TextField(
+                            controller: _familyNameCtrl,
+                            decoration: const InputDecoration(
+                              labelText: '가족 이름',
+                              border: OutlineInputBorder(),
                             ),
                           ),
-                          IconButton(
-                            onPressed: () async {
-                              await Clipboard.setData(ClipboardData(text: _createdInviteCode!));
-                              _showSnack('초대코드를 복사했습니다.');
-                            },
-                            icon: const Icon(Icons.copy),
-                            tooltip: '복사',
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _familyCommentCtrl,
+                            decoration: const InputDecoration(
+                              labelText: '가족 메모(선택)',
+                              border: OutlineInputBorder(),
+                            ),
+                            maxLines: 2,
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.green,
+                              ),
+                              onPressed: _createFamily,
+                              icon: const Icon(Icons.group_add),
+                              label: const Text('가족 생성'),
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
-                ],
 
-                const SizedBox(height: 20),
-                _SectionHeader(title: '초대코드로 가입'),
-                Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 1,
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      children: [
-                        TextField(
-                          controller: _inviteCodeCtrl,
-                          decoration: const InputDecoration(
-                            labelText: '초대코드',
-                            hintText: '예: ABCD12',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _inFamily ? null : _joinFamily,
-                            icon: const Icon(Icons.login),
-                            label: const Text('가족 가입'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                if (kDebugMode && _showDebug) ...[
-                  const SizedBox(height: 20),
-                  _SectionHeader(title: '요청 기록(개발용)'),
-                  Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    elevation: 1,
-                    child: SizedBox(
-                      height: 180,
+                  if (_createdInviteCode != null) ...[
+                    const SizedBox(height: 16),
+                    Card(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 2,
                       child: Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: SingleChildScrollView(child: Text(_log)),
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.vpn_key, size: 20, color: Colors.green),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: SelectableText(
+                                _createdInviteCode!,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () async {
+                                await Clipboard.setData(
+                                    ClipboardData(text: _createdInviteCode!));
+                                _showSnack('초대코드를 복사했습니다.');
+                              },
+                              icon: const Icon(Icons.copy, color: Colors.green),
+                              tooltip: '복사',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
+                  _SectionHeader(title: '초대코드로 가입'),
+                  Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 2,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: _inviteCodeCtrl,
+                            decoration: const InputDecoration(
+                              labelText: '초대코드',
+                              hintText: '예: ABCD12',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.green,
+                                side: const BorderSide(color: Colors.green),
+                              ),
+                              onPressed: _joinFamily,
+                              icon: const Icon(Icons.login),
+                              label: const Text('가족 가입'),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -334,7 +313,11 @@ class _GroupScreenState extends State<GroupScreen> {
           if (_loading)
             const Align(
               alignment: Alignment.topCenter,
-              child: LinearProgressIndicator(minHeight: 2),
+              child: LinearProgressIndicator(
+                minHeight: 2,
+                color: Colors.green,
+                backgroundColor: Colors.white,
+              ),
             ),
         ],
       ),
@@ -349,23 +332,21 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).textTheme.titleMedium?.color;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
           Text(
             title,
-            style: TextStyle(
-              color: color,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.2,
+            style: const TextStyle(
+              color: Colors.green,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(width: 6),
           const Expanded(
-            child: Divider(height: 20, thickness: 0.8),
+            child: Divider(height: 20, thickness: 1, color: Colors.green),
           ),
           if (trailing != null) ...[
             const SizedBox(width: 8),
@@ -400,13 +381,13 @@ class _EmptyFamilyView extends StatelessWidget {
 }
 
 class _FamilyInfoView extends StatelessWidget {
-  final dynamic familyId;
   final String familyName;
+  final String? inviteCode;
   final List members;
 
   const _FamilyInfoView({
-    required this.familyId,
     required this.familyName,
+    this.inviteCode,
     required this.members,
   });
 
@@ -415,27 +396,29 @@ class _FamilyInfoView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _KeyValueRow(label: '가족 ID', value: '$familyId'),
-        const SizedBox(height: 6),
         _KeyValueRow(label: '가족 이름', value: familyName),
+        if (inviteCode != null) ...[
+          const SizedBox(height: 6),
+          _KeyValueRow(label: '가족 코드', value: inviteCode!),
+        ],
         const SizedBox(height: 12),
         const Text('가족 구성원', style: TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         if (members.isEmpty)
           const Text('구성원이 없습니다.', style: TextStyle(color: Colors.black54))
         else
           ...members.map((m) {
-            final uid = m['userId'];
             final name = m['name'] ?? '';
-            final gender = m['gender'] ?? '';
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                children: [
-                  const Icon(Icons.person, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text('$uid / $name / $gender')),
-                ],
+            return Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 1,
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              child: ListTile(
+                leading: const Icon(Icons.person, color: Colors.green),
+                title: Text(
+                  name,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                ),
               ),
             );
           }),
