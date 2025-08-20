@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart' show rootBundle;
 import 'dart:convert';
 
 import '../data/hardcoded_regions.dart';
 import '../models/park.dart';
-
-// ✅ 정의된 기본 URL
-// const String kBaseUrl = 'http://10.0.2.2:8080'; // 안드로이드 에뮬레이터용
-const String kBaseUrl = 'http://localhost:8080'; // 데스크탑
 
 class WalkTab extends StatefulWidget {
   const WalkTab({super.key});
@@ -17,60 +13,82 @@ class WalkTab extends StatefulWidget {
 }
 
 class _WalkTabState extends State<WalkTab> {
+  // ... (상단 상태 변수 및 initState, _loadParkData, _filterParks 로직은 이전과 동일)
   List<String> _sidoList = [];
   Map<String, Map<String, List<String>>> _regionHierarchy = {};
-
   String? _selectedSido;
   String? _selectedSigungu;
   String? _selectedDong;
-
   List<String> _sigunguList = [];
   List<String> _dongList = [];
-
-  List<Park> _parkList = [];
-  bool _isParksLoading = false;
-  String _message = '지역을 선택하고 검색 버튼을 눌러주세요.';
+  List<Park> _allParks = [];
+  List<Park> _filteredParks = [];
+  bool _isLoading = true;
+  String _message = '공원 데이터를 불러오는 중입니다...';
 
   @override
   void initState() {
     super.initState();
     _sidoList = hardcodedSidoList;
     _regionHierarchy = hardcodedRegionHierarchy;
+    _loadParkData();
   }
 
-  Future<void> _fetchParks() async {
-    if (_selectedSido == null || _selectedSigungu == null || _selectedDong == null) return;
-
-    setState(() {
-      _isParksLoading = true;
-      _message = '공원 정보를 불러오는 중입니다...';
-      _parkList = [];
-    });
-
-    final searchAddress = '$_selectedSido $_selectedSigungu $_selectedDong';
-
+  Future<void> _loadParkData() async {
     try {
-      // ✅ 수정된 부분: 하드코딩된 IP 대신 kBaseUrl 상수를 사용합니다.
-      final url = Uri.parse('$kBaseUrl/api/parks?address=${Uri.encodeComponent(searchAddress)}');
+      final String jsonString = await rootBundle.loadString('assets/json/allparkdata.json');
+      final Map<String, dynamic> data = jsonDecode(jsonString);
+      final List<dynamic> itemsList = data['records'];
 
-      print('Requesting to: $url'); // 디버깅을 위해 호출되는 URL을 출력합니다.
+      _allParks = itemsList.map((json) => Park.fromJson(json)).toList();
+      _filteredParks = [];
 
-      final response = await http.get(url);
+      setState(() {
+        _isLoading = false;
+        _message = '지역을 선택하고 검색 버튼을 눌러주세요.';
+      });
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
-        setState(() {
-          _parkList = data.map((json) => Park.fromJson(json)).toList();
-          if (_parkList.isEmpty) _message = '해당 지역에 공원 정보가 없습니다.';
-        });
-      } else {
-        setState(() => _message = '서버 오류: ${response.statusCode}');
-      }
     } catch (e) {
-      setState(() => _message = '네트워크 오류. 서버 주소 또는 인터넷 연결을 확인해주세요.');
-    } finally {
-      setState(() => _isParksLoading = false);
+      setState(() {
+        _isLoading = false;
+        _message = '공원 데이터를 불러오는 데 실패했습니다.';
+        print('JSON 로딩 오류: $e');
+      });
     }
+  }
+
+  void _filterParks() {
+    if (_selectedSido == null || _selectedSigungu == null) {
+      setState(() {
+        _message = '시/도와 시/군/구를 모두 선택해주세요.';
+      });
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    Future.delayed(const Duration(milliseconds: 100), () {
+      List<Park> results = _allParks.where((park) {
+        final fullAddress = (park.lnmadr ?? '') + (park.rdnmadr ?? '');
+        final searchSigungu = '$_selectedSido $_selectedSigungu';
+
+        if (!fullAddress.contains(searchSigungu)) {
+          return false;
+        }
+        if (_selectedDong != null) {
+          return fullAddress.contains(_selectedDong!);
+        }
+        return true;
+      }).toList();
+
+      setState(() {
+        _filteredParks = results;
+        if (_filteredParks.isEmpty) {
+          _message = '해당 지역에 공원 정보가 없습니다.';
+        }
+        _isLoading = false;
+      });
+    });
   }
 
   @override
@@ -89,6 +107,7 @@ class _WalkTabState extends State<WalkTab> {
     );
   }
 
+  // ... (Dropdown 관련 위젯은 이전과 동일)
   Widget _buildRegionSelectors() {
     return Column(
       children: [
@@ -123,7 +142,7 @@ class _WalkTabState extends State<WalkTab> {
         ]),
         const SizedBox(height: 10),
         _buildDropdown(
-          hint: '읍/면/동 선택',
+          hint: '읍/면/동 선택 (선택)',
           value: _selectedDong,
           items: _dongList,
           onChanged: (value) => setState(() => _selectedDong = value),
@@ -164,8 +183,8 @@ class _WalkTabState extends State<WalkTab> {
   Widget _buildSearchButton() {
     return ElevatedButton.icon(
       icon: const Icon(Icons.search, color: Colors.white),
-      onPressed: (_selectedSido != null && _selectedSigungu != null && _selectedDong != null)
-          ? _fetchParks
+      onPressed: (_selectedSido != null && _selectedSigungu != null)
+          ? _filterParks
           : null,
       label: const Text('산책로 검색', style: TextStyle(fontSize: 16, color: Colors.white)),
       style: ElevatedButton.styleFrom(
@@ -177,11 +196,12 @@ class _WalkTabState extends State<WalkTab> {
     );
   }
 
+  // ▼▼▼ 여기가 UI 표시를 담당하는 핵심 수정 부분입니다 ▼▼▼
   Widget _buildResultsView() {
-    if (_isParksLoading) {
+    if (_isLoading) {
       return const Center(child: CircularProgressIndicator(color: Colors.green));
     }
-    if (_parkList.isEmpty) {
+    if (_filteredParks.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -194,9 +214,29 @@ class _WalkTabState extends State<WalkTab> {
       );
     }
     return ListView.builder(
-      itemCount: _parkList.length,
+      itemCount: _filteredParks.length,
       itemBuilder: (context, index) {
-        final park = _parkList[index];
+        final park = _filteredParks[index];
+
+        // 1. 공원 이름 뒤에 '공원' 붙이기
+        String displayName = park.parkNm ?? '이름 없음';
+        if (!displayName.endsWith('공원')) {
+          displayName += '공원';
+        }
+
+        // 2. 표시할 주소 선택 (도로명 > 지번)
+        String displayAddress = (park.rdnmadr != null && park.rdnmadr!.isNotEmpty)
+            ? park.rdnmadr!
+            : park.lnmadr ?? '주소 정보 없음';
+
+        // 3. 시설 정보가 있을 때만 위젯 리스트에 추가
+        List<Widget> facilityWidgets = [];
+        _addFacilityInfo(facilityWidgets, '운동시설', park.mvmFclty);
+        _addFacilityInfo(facilityWidgets, '유희시설', park.amsmtFclty);
+        _addFacilityInfo(facilityWidgets, '편익시설', park.cnvnncFclty);
+        _addFacilityInfo(facilityWidgets, '교양시설', park.cltrFclty);
+        _addFacilityInfo(facilityWidgets, '기타시설', park.etcFclty);
+
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 8),
           elevation: 2,
@@ -209,21 +249,39 @@ class _WalkTabState extends State<WalkTab> {
                 Row(children: [
                   const Icon(Icons.park, color: Colors.green, size: 28),
                   const SizedBox(width: 12),
-                  Expanded(child: Text(park.parkNm, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
+                  Expanded(child: Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
                 ]),
                 const Divider(height: 24),
-                Text(park.rdnmadr.isNotEmpty ? park.rdnmadr : park.lnmadr, style: TextStyle(color: Colors.grey[700])),
-                const SizedBox(height: 8),
-                Text('면적: ${park.parkAr}㎡', style: TextStyle(color: Colors.grey[600])),
-                if (park.mvmFclty.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text('운동시설: ${park.mvmFclty}', style: TextStyle(color: Colors.grey[600])),
-                ]
+                // 4. 위치 정보 표시 (면적 대신)
+                _buildInfoRow(Icons.location_on_outlined, '위치', displayAddress),
+                // 5. 시설 정보 목록 표시
+                ...facilityWidgets,
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  // 시설 정보가 있을 때만 리스트에 추가하는 헬퍼 함수
+  void _addFacilityInfo(List<Widget> widgets, String label, String? data) {
+    if (data != null && data.isNotEmpty) {
+      widgets.add(const SizedBox(height: 8));
+      widgets.add(_buildInfoRow(Icons.check_circle_outline, label, data));
+    }
+  }
+
+  // 아이콘, 라벨, 텍스트를 보여주는 공통 UI 위젯
+  Widget _buildInfoRow(IconData icon, String label, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: Colors.grey[600], size: 18),
+        const SizedBox(width: 8),
+        Text('$label: ', style: TextStyle(color: Colors.grey[800], fontWeight: FontWeight.bold)),
+        Expanded(child: Text(text, style: TextStyle(color: Colors.grey[700]))),
+      ],
     );
   }
 }
