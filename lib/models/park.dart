@@ -25,7 +25,6 @@ class Park {
   @JsonKey(name: '공원보유시설(운동시설)')
   final String? mvmFclty;
 
-  // ▼▼▼ 새로 추가된 시설 필드들 ▼▼▼
   @JsonKey(name: '공원보유시설(유희시설)')
   final String? amsmtFclty;
 
