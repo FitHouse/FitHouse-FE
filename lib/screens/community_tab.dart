@@ -377,17 +377,40 @@ class _CommunityTabState extends State<CommunityTab>
                           final result = await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) =>
-                                  CommunityDetailScreen(args: args),
+                              builder: (_) => CommunityDetailScreen(args: args),
                             ),
                           );
 
                           if (!mounted) return;
-                          if (result is Map && result['deleted'] == true) {
-                            setState(() {
-                              _feed.removeWhere((it) =>
-                              it.id.toString() == result['postId']);
-                            });
+                          if (result is Map) {
+                            //삭제 반영
+                            if (result['deleted'] == true) {
+                              setState(() {
+                                _feed.removeWhere((it) => it.id.toString() == result['postId']);
+                              });
+                            }
+                            //수정 반영
+                            else if (result['updated'] == true) {
+                              final idx = _feed.indexWhere((it) => it.id.toString() == (result['postId'] as String));
+                              if (idx != -1) {
+                                final old = _feed[idx];
+                                final newImageUrl = (result['newImageUrl'] as String?)?.trim();
+                                final newContent  = (result['content'] as String?)?.trim();
+
+                                final updated = FeedItem(
+                                  id: old.id,
+                                  authorId: old.authorId,
+                                  date: old.date,
+                                  imageUrl: (newImageUrl != null && newImageUrl.isNotEmpty) ? newImageUrl : old.imageUrl,
+                                  thumbnailUrl: (newImageUrl != null && newImageUrl.isNotEmpty) ? newImageUrl : old.thumbnailUrl,
+                                  comment: (newContent != null && newContent.isNotEmpty) ? newContent : old.comment,
+                                );
+
+                                setState(() {
+                                  _feed[idx] = updated;
+                                });
+                              }
+                            }
                           }
                         },
                         child: ClipRRect(
