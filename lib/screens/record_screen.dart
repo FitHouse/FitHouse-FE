@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
-import 'package:fithouse/api/http_client.dart'; // baseUrl, httpClient, authHeaders, assetBaseUrl
+import 'package:fithouse/api/http_client.dart';
 import 'package:fithouse/api/personal_workout_api.dart';
 import 'package:fithouse/models/paged.dart';
 import 'package:fithouse/models/personal_workout.dart';
+
 
 String moodEmoji(int? level) {
   switch (level) {
@@ -82,7 +83,8 @@ String normalizeUrl(String? url) {
 }
 
 class RecordScreen extends StatefulWidget {
-  const RecordScreen({super.key});
+  final int? userId;
+  const RecordScreen({super.key, this.userId});
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -147,21 +149,18 @@ class _RecordScreenState extends State<RecordScreen> {
     return age;
   }
 
+  // 1. _loadMyInfo() 수정: userId에 따라 다른 API 호출
   Future<void> _loadMyInfo() async {
     setState(() {
       _myInfoLoading = true;
       _myInfoError = null;
     });
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        setState(() {
-          _myInfoError = '로그인이 필요합니다.';
-        });
-        return;
-      }
-
-      final uri = Uri.parse('$baseUrl/api/users/me');
+      final uri = Uri.parse(
+          widget.userId == null
+              ? '$baseUrl/api/users/me'
+              : '$baseUrl/family/member/${widget.userId}'
+      );
       final res =
       await httpClient.get(uri, headers: await authHeaders(json: false));
 
@@ -200,12 +199,33 @@ class _RecordScreenState extends State<RecordScreen> {
     }
   }
 
+  // 2. _loadInitial() 수정: userId에 따라 다른 API 호출 및 파싱 로직 변경
   Future<void> _loadInitial() async {
     if (_loading) return;
     setState(() => _loading = true);
     try {
-      final Paged<PersonalWorkout> resp =
-      await api.list(page: 0, size: _size);
+      final Paged<PersonalWorkout> resp;
+      if (widget.userId == null) {
+        // 본인 기록 API
+        print('My workout record API call');
+        resp = await api.list(page: 0, size: _size);
+      } else {
+        // 가족 구성원 기록 API 호출 (URL 수정 및 데이터 파싱 방식 변경)
+        final uri = Uri.parse('$baseUrl/family/member/${widget.userId}?page=0&size=$_size');
+        print('Family member workout record API call: $uri');
+        final res = await httpClient.get(uri, headers: await authHeaders());
+        print('Response status code: ${res.statusCode}');
+        print('Response body: ${res.body}'); // Add log here
+        final data = jsonDecode(res.body);
+
+        if (data != null && data['workouts'] is Map<String, dynamic>) {
+          resp = Paged.fromJson(data['workouts'], PersonalWorkout.fromJson);
+        } else {
+          resp = Paged(content: [], page: 0, totalPages: 0);
+          print('Workout record data is missing or in an invalid format.');
+        }
+      }
+
       setState(() {
         _items
           ..clear()
@@ -215,18 +235,37 @@ class _RecordScreenState extends State<RecordScreen> {
         _initialLoaded = true;
       });
     } catch (e) {
+      print('API call error: $e');
       _showError(e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  // 3. _loadMore() 수정: userId에 따라 다른 API 호출 및 파싱 로직 변경
   Future<void> _loadMore() async {
     if (_loading || !_hasMore) return;
     setState(() => _loading = true);
     try {
       final next = _page + 1;
-      final resp = await api.list(page: next, size: _size);
+      final Paged<PersonalWorkout> resp;
+      if (widget.userId == null) {
+        resp = await api.list(page: next, size: _size);
+      } else {
+        // 가족 구성원 기록 API 호출 (URL 수정 및 데이터 파싱 방식 변경)
+        final uri = Uri.parse('$baseUrl/family/member/${widget.userId}?page=$next&size=$_size');
+        final res = await httpClient.get(uri, headers: await authHeaders());
+        final data = jsonDecode(res.body);
+
+        // 'workoutDTOs' 필드를 추출하여 파싱합니다.
+        // 해당 필드가 null이거나 유효하지 않은 경우를 대비한 방어 로직 추가
+        if (data != null && data['workouts'] is Map<String, dynamic>) {
+          resp = Paged.fromJson(data['workouts'], PersonalWorkout.fromJson);
+        } else {
+          // 데이터가 없거나 형식이 잘못된 경우 빈 Paged 객체 반환
+          resp = Paged(content: [], page: next, totalPages: _page + 1); // 현재 페이지까지는 데이터가 있다고 가정
+        }
+      }
       setState(() {
         _items.addAll(resp.content);
         _page = next;
@@ -248,7 +287,9 @@ class _RecordScreenState extends State<RecordScreen> {
     }
   }
 
+  // 4. _onCreate() 수정: 본인 기록일 때만 허용
   Future<void> _onCreate() async {
+    if (widget.userId != null) return; // 가족 기록 페이지에서는 생성 불가
     final result = await showModalBottomSheet<_EditResult>(
       context: context,
       isScrollControlled: true,
@@ -270,13 +311,14 @@ class _RecordScreenState extends State<RecordScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('운동 기록이 추가되었습니다.')));
       }
-      // Navigator.pop(context, true); 제거됨
     } catch (e) {
       _showError(e.toString());
     }
   }
 
+  // 5. _onEdit() 수정: 본인 기록일 때만 허용
   Future<void> _onEdit(PersonalWorkout item) async {
+    if (widget.userId != null) return; // 가족 기록 페이지에서는 수정 불가
     final result = await showModalBottomSheet<_EditResult>(
       context: context,
       isScrollControlled: true,
@@ -298,7 +340,7 @@ class _RecordScreenState extends State<RecordScreen> {
         date: result.date,
         workoutName: result.workoutName,
         duration: result.duration,
-        satisfactionLevel: result.satisfactionLevel,
+        satisfactionLevel: item.satisfactionLevel,
         memo: result.memo,
       );
       setState(() {
@@ -315,7 +357,9 @@ class _RecordScreenState extends State<RecordScreen> {
     }
   }
 
+  // 6. _onDelete() 수정: 본인 기록일 때만 허용
   Future<void> _onDelete(PersonalWorkout item) async {
+    if (widget.userId != null) return; // 가족 기록 페이지에서는 삭제 불가
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -508,10 +552,13 @@ class _RecordScreenState extends State<RecordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('개인운동 기록')),
-      floatingActionButton: FloatingActionButton(
+      // 7. FloatingActionButton 숨기기: 본인 기록일 때만 표시
+      floatingActionButton: widget.userId == null
+          ? FloatingActionButton(
         onPressed: _onCreate,
         child: const Icon(Icons.add),
-      ),
+      )
+          : null,
       body: RefreshIndicator(
         onRefresh: () async {
           await _loadMyInfo();
@@ -539,11 +586,14 @@ class _RecordScreenState extends State<RecordScreen> {
               title: Text('${_dateStr(item.date)} · ${item.workoutName}'),
               subtitle: Text(
                   '시간 ${item.duration}분 • 컨디션 ${item.satisfactionLevel ?? 0}$memoTail'),
-              onTap: () => _onEdit(item),
-              trailing: IconButton(
+              // 8. onTap과 trailing 버튼: 본인 기록일 때만 활성화
+              onTap: widget.userId == null ? () => _onEdit(item) : null,
+              trailing: widget.userId == null
+                  ? IconButton(
                 icon: const Icon(Icons.delete_outline),
                 onPressed: () => _onDelete(item),
-              ),
+              )
+                  : null,
             );
           },
         ),
