@@ -1,5 +1,5 @@
-// community_compose_screen.dart
 import 'dart:io';
+import 'dart:convert';
 import 'package:fithouse/constants/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -57,7 +57,7 @@ class _CommunityComposeScreenState extends State<CommunityComposeScreen> {
     if (user == null) {
       throw Exception('로그인이 필요합니다.');
     }
-    final token = await user.getIdToken(true); // String?
+    final String? token = await user.getIdToken(true);
     if (token == null || token.isEmpty) {
       throw Exception('ID 토큰을 가져오지 못했습니다.');
     }
@@ -101,6 +101,7 @@ class _CommunityComposeScreenState extends State<CommunityComposeScreen> {
 
     final req = http.MultipartRequest('POST', uri)
       ..headers['Authorization'] = 'Bearer $token'
+      ..headers['Accept'] = 'application/json'
       ..fields['comment'] = _contentCtrl.text.trim();
 
     req.files.add(await http.MultipartFile.fromPath('file', _pickedImage!.path));
@@ -136,7 +137,8 @@ class _CommunityComposeScreenState extends State<CommunityComposeScreen> {
     }
 
     final req = http.MultipartRequest('PATCH', uri)
-      ..headers['Authorization'] = 'Bearer $token';
+      ..headers['Authorization'] = 'Bearer $token'
+      ..headers['Accept'] = 'application/json';
 
     req.fields['comment'] = newComment;
 
@@ -149,10 +151,19 @@ class _CommunityComposeScreenState extends State<CommunityComposeScreen> {
     final body = await streamed.stream.bytesToString();
 
     if (code == 200) {
+      String? newImageUrl;
+      try {
+        final m = jsonDecode(body) as Map<String, dynamic>;
+        newImageUrl = (m['imageUrl'] as String?)?.trim();
+      } catch (_) {
+        // 응답 파싱 실패시 이미지 URL 없이 텍스트만 반영
+      }
+
       if (!mounted) return;
       Navigator.pop(context, {
         'updated': true,
         'content': newComment,
+        if (newImageUrl != null && newImageUrl.isNotEmpty) 'newImageUrl': newImageUrl,
       });
     } else {
       if (!mounted) return;
@@ -160,16 +171,6 @@ class _CommunityComposeScreenState extends State<CommunityComposeScreen> {
         SnackBar(content: Text('수정 실패: $code\n$body')),
       );
     }
-  }
-
-  String _encodeJsonString(String s) {
-    final escaped = s
-        .replaceAll(r'\', r'\\')
-        .replaceAll('"', r'\"')
-        .replaceAll('\n', r'\n')
-        .replaceAll('\r', r'\r')
-        .replaceAll('\t', r'\t');
-    return '"$escaped"';
   }
 
   @override
@@ -188,6 +189,7 @@ class _CommunityComposeScreenState extends State<CommunityComposeScreen> {
         actions: [
           TextButton(
             onPressed: _submitting ? null : _submit,
+            style: TextButton.styleFrom(foregroundColor: naviGreen),
             child: _submitting
                 ? SizedBox(
               width: 18,
@@ -198,7 +200,6 @@ class _CommunityComposeScreenState extends State<CommunityComposeScreen> {
               ),
             )
                 : const Text('등록'),
-            style: TextButton.styleFrom(foregroundColor: naviGreen),
           ),
           const SizedBox(width: 4),
         ],
@@ -240,16 +241,52 @@ class _CommunityComposeScreenState extends State<CommunityComposeScreen> {
               ),
               const SizedBox(height: 16),
             ] else ...[
-              if (widget.initialImageUrl != null) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    widget.initialImageUrl!,
-                    fit: BoxFit.cover,
+              // 수정 모드: 기존 이미지 보여주고 탭하면 교체 가능
+              GestureDetector(
+                onTap: _pickImage,
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.black12),
+                    ),
+                    child: _pickedImage != null
+                        ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(_pickedImage!, fit: BoxFit.cover),
+                    )
+                        : (widget.initialImageUrl != null
+                        ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        widget.initialImageUrl!,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                        : Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.image_outlined, size: 40),
+                          SizedBox(height: 8),
+                          Text('사진을 등록해 주세요.'),
+                        ],
+                      ),
+                    )),
                   ),
                 ),
-                const SizedBox(height: 16),
-              ],
+              ),
+              const SizedBox(height: 8),
+              const Align(
+                alignment: Alignment.center,
+                child: Text(
+                  '탭하여 사진 변경',
+                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+              ),
+              const SizedBox(height: 16),
             ],
 
             TextFormField(

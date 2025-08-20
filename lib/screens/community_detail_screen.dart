@@ -41,6 +41,8 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
   late String _content;
   late List<String> _imageUrls;
 
+  bool _dirty = false;
+
   @override
   void initState() {
     super.initState();
@@ -130,6 +132,7 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
           _imageUrls = [newUrl];
           _currentPage = 0;
         }
+        _dirty = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('수정되었습니다.')),
@@ -171,53 +174,82 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
   Widget build(BuildContext context) {
     final a = widget.args;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('게시글'),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _onRefresh,
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 8),
-                  _Header(
-                    authorName: a.authorName,
-                    avatarUrl: a.authorAvatarUrl,
-                    createdAt: a.createdAt,
-                    trailing: a.isMine
-                        ? IconButton(
-                      icon: const Icon(Icons.more_horiz),
-                      onPressed: _onMorePressed,
-                    )
-                        : const SizedBox.shrink(),
-                  ),
-                  const SizedBox(height: 8),
-                  if (_imageUrls.isNotEmpty) ...[
-                    _ImagePager(
-                      images: _imageUrls,
-                      controller: _pageController,
-                      onPageChanged: (i) => setState(() => _currentPage = i),
-                    ),
-                    const SizedBox(height: 6),
-                    _DotsIndicator(
-                      count: _imageUrls.length,
-                      index: _currentPage,
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: _Body(content: _content),
-                  ),
-                  const SizedBox(height: 24),
-                ],
+    return WillPopScope(
+      onWillPop: () async {
+        if (_dirty) {
+          Navigator.pop(context, {
+            'updated': true,
+            'postId': a.postId,
+            'content': _content,
+            'newImageUrl': _imageUrls.isNotEmpty ? _imageUrls.first : null,
+          });
+          return false;
+        }
+        return true;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('게시글'),
+          leading: BackButton(
+            onPressed: () {
+              if (_dirty) {
+                Navigator.pop(context, {
+                  'updated': true,
+                  'postId': a.postId,
+                  'content': _content,
+                  'newImageUrl': _imageUrls.isNotEmpty ? _imageUrls.first : null,
+                });
+              } else {
+                Navigator.pop(context);
+              }
+            },
+          ),
+          actions: [
+            if (a.isMine)
+              IconButton(
+                icon: const Icon(Icons.more_horiz),
+                onPressed: _onMorePressed,
               ),
-            ),
           ],
+        ),
+        body: RefreshIndicator(
+          onRefresh: _onRefresh,
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 8),
+                    _Header(
+                      authorName: a.authorName,
+                      avatarUrl: a.authorAvatarUrl,
+                      createdAt: a.createdAt,
+                    ),
+                    const SizedBox(height: 8),
+                    if (_imageUrls.isNotEmpty) ...[
+                      _ImagePager(
+                        images: _imageUrls,
+                        controller: _pageController,
+                        onPageChanged: (i) => setState(() => _currentPage = i),
+                      ),
+                      const SizedBox(height: 6),
+                      _DotsIndicator(
+                        count: _imageUrls.length,
+                        index: _currentPage,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: _Body(content: _content),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
