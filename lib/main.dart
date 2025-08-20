@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // ⬅ 추가
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/chat_provider.dart';
-import 'screens/auth/login_screen.dart'; // ⬅ 추가
+import 'screens/auth/login_screen.dart';
 import 'screens/chatbot_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/step_counter_screen.dart';
@@ -17,6 +17,10 @@ import 'screens/group_screen.dart';
 import 'screens/record_screen.dart';
 import 'constants/colors.dart';
 
+// 전역 RouteObserver 선언
+final RouteObserver<ModalRoute<void>> routeObserver =
+RouteObserver<ModalRoute<void>>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -25,7 +29,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => ChatProvider()),
       ],
-      child: FitHouseApp(), // ← 이제 Provider 안에 감싸짐
+      child: FitHouseApp(),
     ),
   );
 }
@@ -36,6 +40,7 @@ class FitHouseApp extends StatelessWidget {
     return MaterialApp(
       title: '핏하우스',
       debugShowCheckedModeBanner: false,
+      navigatorObservers: [routeObserver], // RouteObserver 등록
       theme: ThemeData(
         scaffoldBackgroundColor: bgBeige,
         primaryColor: mainGreen,

@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'package:fithouse/screens/record_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:fithouse/api/http_client.dart';
 import 'package:fithouse/models/family_daily_record.dart';
+import '../main.dart'; // ← routeObserver를 사용하기 위해 main.dart import 필요
 
-// API 연동 버전
+// 가족 / 내정보 화면
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -13,9 +15,49 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
   List<FamilyDailyRecord> _family = [];
   bool _loading = true;
+
+  // 색상 캐시
+  final Map<String, Color> _colorCache = {};
+  int _colorIndex = 0;
+
+  final pastelColors = const [
+    Color(0xFFB3E5FC), // 연한 하늘색
+    Color(0xFFFFCDD2), // 연한 핑크
+    Color(0xFFC8E6C9), // 연한 초록
+    Color(0xFFFFF9C4), // 연한 노랑
+    Color(0xFFD1C4E9), // 연한 보라
+    Color(0xFFFFE0B2), // 연한 주황
+    Color(0xFFDCEDC8), // 연한 연두
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFamily();
+  }
+
+  // ← RouteObserver 구독
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  // ← RouteObserver 해제
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  // 다른 화면에서 뒤로 돌아올 때 호출됨
+  @override
+  void didPopNext() {
+    _loadFamily();
+  }
 
   String roleLabel(String role) {
     switch (role) {
@@ -36,12 +78,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadFamily();
-  }
-
   Future<void> _loadFamily() async {
     try {
       final uri = Uri.parse('$baseUrl/family/daily-records');
@@ -49,8 +85,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (res.statusCode == 200) {
         final List data = jsonDecode(res.body);
         setState(() {
-          _family =
-              data.map((e) => FamilyDailyRecord.fromJson(e)).toList();
+          _family = data.map((e) => FamilyDailyRecord.fromJson(e)).toList();
           _loading = false;
         });
       } else {
@@ -60,6 +95,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       debugPrint('Error: $e');
       setState(() => _loading = false);
     }
+  }
+
+  Color _colorFor(String workoutName) {
+    if (_colorCache.containsKey(workoutName)) {
+      return _colorCache[workoutName]!;
+    }
+    final color = pastelColors[_colorIndex % pastelColors.length];
+    _colorCache[workoutName] = color;
+    _colorIndex++;
+    return color;
   }
 
   @override
@@ -98,9 +143,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   RingAvatar(
                     segments: me.workoutMinutes.entries
-                        .map((e) => RingSegment(e.key, e.value, _colorFor(e.key)))
+                        .map((e) =>
+                        RingSegment(e.key, e.value, _colorFor(e.key)))
                         .toList(),
-                    goalMinutes: ProfileScreen.dailyGoalMinutes,
+                    goalMinutes: me.totalMinutes > 0 ? me.totalMinutes : 1,
                     imageUrl: me.profileImageUrl != null
                         ? '$assetBaseUrl${me.profileImageUrl}'
                         : null,
@@ -129,7 +175,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             style: const TextStyle(fontSize: 12)),
                         const SizedBox(height: 12),
                         FilledButton(
-                          onPressed: () {},
+                          onPressed: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const RecordScreen()),
+                            );
+                          },
                           child: const Text('내 기록'),
                         ),
                       ],
@@ -150,24 +202,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               member: m,
               goalMinutes: ProfileScreen.dailyGoalMinutes,
               roleText: roleLabel(m.role),
+              colorFor: _colorFor,
             ),
           ),
         ],
       ),
     );
-  }
-
-  Color _colorFor(String workoutName) {
-    final colors = [
-      Colors.blue,
-      Colors.teal,
-      Colors.orange,
-      Colors.purple,
-      Colors.red,
-      Colors.green,
-      Colors.indigo,
-    ];
-    return colors[workoutName.hashCode % colors.length];
   }
 }
 
@@ -175,11 +215,13 @@ class _FamilyTile extends StatelessWidget {
   final FamilyDailyRecord member;
   final int goalMinutes;
   final String roleText;
+  final Color Function(String) colorFor;
 
   const _FamilyTile({
     required this.member,
     required this.goalMinutes,
     required this.roleText,
+    required this.colorFor,
   });
 
   @override
@@ -198,9 +240,9 @@ class _FamilyTile extends StatelessWidget {
             children: [
               RingAvatar(
                 segments: member.workoutMinutes.entries
-                    .map((e) => RingSegment(e.key, e.value, _colorFor(e.key)))
+                    .map((e) => RingSegment(e.key, e.value, colorFor(e.key)))
                     .toList(),
-                goalMinutes: goalMinutes,
+                goalMinutes: member.totalMinutes > 0 ? member.totalMinutes : 1,
                 imageUrl: member.profileImageUrl != null
                     ? '$assetBaseUrl${member.profileImageUrl}'
                     : null,
@@ -216,12 +258,13 @@ class _FamilyTile extends StatelessWidget {
                     Text(member.name,
                         style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 2),
-                    Text(roleText, style: Theme.of(context).textTheme.bodySmall),
+                    Text(roleText,
+                        style: Theme.of(context).textTheme.bodySmall),
                     const SizedBox(height: 8),
                     _Legend(
                       segments: member.workoutMinutes.entries
                           .map((e) =>
-                          RingSegment(e.key, e.value, _colorFor(e.key)))
+                          RingSegment(e.key, e.value, colorFor(e.key)))
                           .toList(),
                     ),
                   ],
@@ -234,19 +277,6 @@ class _FamilyTile extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Color _colorFor(String workoutName) {
-    final colors = [
-      Colors.blue,
-      Colors.teal,
-      Colors.orange,
-      Colors.purple,
-      Colors.red,
-      Colors.green,
-      Colors.indigo,
-    ];
-    return colors[workoutName.hashCode % colors.length];
   }
 }
 
