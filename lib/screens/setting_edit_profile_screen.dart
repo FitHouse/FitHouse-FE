@@ -1,7 +1,22 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+// 서버 통신
+import '../api/user_profile_api.dart';
+import '../models/user_profile.dart';
+
+/// 서버 베이스 URL (아바타 미리보기 절대 경로 변환용)
+const _baseUrl = 'http://marketalert.iptime.org:8080';
+String? _abs(String? url) {
+  if (url == null || url.isEmpty) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (!url.startsWith('/')) url = '/$url';
+  return '$_baseUrl$url';
+}
 
 /// =========================
-/// 프로필 데이터 모델
+/// 프로필 데이터 모델 (초기값 컨테이너)
 /// =========================
 class ProfileData {
   final String nickname;
@@ -40,7 +55,13 @@ class ProfileData {
 /// =========================
 class SettingEditProfileScreen extends StatefulWidget {
   final ProfileData initial;
-  const SettingEditProfileScreen({super.key, required this.initial});
+  final String? currentImageUrl; // ← 초기 아바타 프리뷰용 (상대경로 가능)
+
+  const SettingEditProfileScreen({
+    super.key,
+    required this.initial,
+    this.currentImageUrl,
+  });
 
   @override
   State<SettingEditProfileScreen> createState() =>
@@ -48,8 +69,18 @@ class SettingEditProfileScreen extends StatefulWidget {
 }
 
 class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
+  // 서버 통신/이미지 선택
+  final _api = UserProfileApi();
+  final _picker = ImagePicker();
+
+  // 저장 중 여부 & 이미지 업로드 결과
+  bool _saving = false;
+  UserProfile? _latestFromServer; // 이미지 업/삭제 등으로 갱신된 최신 프로필
+
+  // 아바타 프리뷰 URL(절대경로)
   String? avatarUrl;
 
+  // 폼 상태
   late final TextEditingController _nick;
   late String _birth;
   late String _email;
@@ -64,6 +95,9 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
     _email = widget.initial.email ?? '';
     _heightCm = widget.initial.heightCm ?? 170;
     _weightKg = widget.initial.weightKg ?? 65;
+
+    // 초기 아바타 프리뷰 세팅
+    avatarUrl = _abs(widget.currentImageUrl);
   }
 
   @override
@@ -74,17 +108,106 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
 
   double get _bmi => _weightKg / ((_heightCm / 100) * (_heightCm / 100));
 
-  void _saveAndPop() {
-    Navigator.pop(
-      context,
-      ProfileData(
-        nickname: _nick.text.trim(),
-        birth: _birth,
-        email: _email,
-        heightCm: _heightCm,
-        weightKg: _weightKg,
-      ),
+  // 정수면 170, 소수면 177.7 식으로 표시
+  String _fmtNum(double v) =>
+      (v == v.roundToDouble()) ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+
+  // ===== 이미지 업로드 =====
+  Future<void> _pickFromGallery() async {
+    final x = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      imageQuality: 90,
     );
+    if (x == null) return;
+    await _uploadAvatar(File(x.path));
+  }
+
+  Future<void> _uploadAvatar(File file) async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      final updated = await _api.uploadProfileImage(file.path); // PATCH /profile-image
+      _latestFromServer = updated;
+      setState(() {
+        avatarUrl = _abs(updated.profileImageUrl); // 미리보기 갱신
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('프로필 사진이 업데이트되었습니다.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('업로드 실패: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  // ===== 저장(PATCH /api/users/me) =====
+  Future<void> _saveAndPop() async {
+    if (_saving) return;
+
+    final Map<String, dynamic> payload = {};
+
+    // 닉네임 변경 시에만 포함
+    final nicknameNew = _nick.text.trim();
+    if (nicknameNew.isNotEmpty && nicknameNew != widget.initial.nickname) {
+      payload['name'] = nicknameNew;
+    }
+
+    // 생년월일 YYYY-MM-DD
+    final birthTrim = _birth.trim();
+    final birthOld = (widget.initial.birth ?? '').trim();
+    final birthValid = RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(birthTrim);
+    if (birthTrim.isNotEmpty && birthTrim != birthOld) {
+      if (!birthValid) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('생년월일은 YYYY-MM-DD 형식으로 입력하세요.')),
+        );
+        return;
+      }
+      payload['birthdate'] = birthTrim;
+    }
+
+    // 키/몸무게 (변경 시에만)
+    if (widget.initial.heightCm == null || _heightCm != widget.initial.heightCm) {
+      payload['height'] = _heightCm;
+    }
+    if (widget.initial.weightKg == null || _weightKg != widget.initial.weightKg) {
+      payload['weight'] = _weightKg;
+    }
+
+    // 변경 없음 && 이미지도 안 바뀐 경우
+    if (payload.isEmpty && _latestFromServer == null) {
+      Navigator.pop<UserProfile?>(context, null);
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      UserProfile? result;
+
+      if (payload.isNotEmpty) {
+        // 서버가 BMI/나이 재계산
+        result = await _api.updateProfile(payload);
+      }
+
+      // 필드 변경 없이 이미지 업로드만 했으면 그 결과 사용
+      result ??= _latestFromServer;
+
+      if (!mounted) return;
+      Navigator.pop<UserProfile>(context, result!);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('저장 실패: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<T?> _openSheet<T>(Widget child) {
@@ -120,7 +243,10 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
       appBar: AppBar(
         title: const Text('내 정보 변경'),
         actions: [
-          TextButton(onPressed: _saveAndPop, child: const Text('저장')),
+          TextButton(
+            onPressed: _saving ? null : _saveAndPop,
+            child: const Text('저장'),
+          ),
         ],
       ),
       body: ListView(
@@ -128,28 +254,30 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
         children: [
           // ===== 프로필 이미지 =====
           Center(
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                CircleAvatar(
-                  radius: 50,
-                  backgroundImage:
-                  avatarUrl != null ? NetworkImage(avatarUrl!) : null,
-                  child:
-                  avatarUrl == null ? const Icon(Icons.person, size: 50) : null,
-                ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: IconButton.filledTonal(
-                    style: IconButton.styleFrom(padding: const EdgeInsets.all(6)),
-                    onPressed: () {
-                      // TODO: 이미지 선택/업로드
-                    },
-                    icon: const Icon(Icons.edit, size: 20),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: _pickFromGallery, // 아바타 탭 → 갤러리
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(
+                    radius: 50,
+                    backgroundImage:
+                    avatarUrl != null ? NetworkImage(avatarUrl!) : null,
+                    child:
+                    avatarUrl == null ? const Icon(Icons.person, size: 50) : null,
                   ),
-                ),
-              ],
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: IconButton.filledTonal(
+                      style: IconButton.styleFrom(padding: const EdgeInsets.all(6)),
+                      onPressed: _pickFromGallery, // 연필 버튼 → 갤러리
+                      icon: const Icon(Icons.edit, size: 20),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 18),
@@ -188,10 +316,10 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
                 _InfoRow(
                   label: '키·몸무게',
                   value:
-                  '${_heightCm.toStringAsFixed(0)}cm / ${_weightKg.toStringAsFixed(1)}kg (BMI ${_bmi.isFinite ? _bmi.toStringAsFixed(1) : '-'})',
+                  '${_fmtNum(_heightCm)}cm / ${_weightKg.toStringAsFixed(1)}kg (BMI ${_bmi.isFinite ? _bmi.toStringAsFixed(1) : '-'})',
                   onEdit: () async {
                     final res = await _openSheet<_HWResult>(
-                      HeightWeightSheet( // ⬅ 시트 전용
+                      HeightWeightSheet(
                         initHeightCm: _heightCm,
                         initWeightKg: _weightKg,
                       ),
@@ -224,7 +352,7 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
 
           const _BlockSpacer(),
 
-          // ===== 이메일 & 비밀번호 변경 (풀스크린) =====
+          // ===== 이메일 & 비밀번호 변경 (풀스크린) — 그대로 유지 =====
           _Section(
             child: Column(
               children: [
@@ -313,9 +441,8 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
 }
 
 /// =========================
-/// 공용 위젯
+/// 공용 위젯 (디자인 그대로)
 /// =========================
-
 class _Section extends StatelessWidget {
   final Widget child;
   const _Section({required this.child});
@@ -334,7 +461,6 @@ class _BlockSpacer extends StatelessWidget {
       Container(height: 8, color: const Color(0xFFF2F3F5));
 }
 
-/// 정보 행(라벨 굵게 + 값은 회색)
 class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
@@ -397,7 +523,7 @@ class _FieldLabel extends StatelessWidget {
 }
 
 /// =========================
-/// 바텀시트 공용 핸들(회색 바)
+/// 바텀시트 공용 핸들
 /// =========================
 class _SheetHandle extends StatelessWidget {
   const _SheetHandle({super.key});
@@ -418,7 +544,7 @@ class _SheetHandle extends StatelessWidget {
 }
 
 /// =========================
-/// 바텀시트용 텍스트 입력 화면 (생년월일 등) - 고정 비율 높이
+/// 바텀시트 - 텍스트 입력 (생년월일 등)
 /// =========================
 class TextEditSheet extends StatefulWidget {
   final String label;
@@ -482,7 +608,7 @@ class _TextEditSheetState extends State<TextEditSheet> {
 }
 
 /// =========================
-/// 키·몸무게 바텀시트 (고정 비율 높이)
+/// 바텀시트 - 키/몸무게
 /// =========================
 class HeightWeightSheet extends StatefulWidget {
   final double initHeightCm;
@@ -501,10 +627,13 @@ class _HeightWeightSheetState extends State<HeightWeightSheet> {
   late final TextEditingController _h;
   late final TextEditingController _w;
 
+  String _fmt(double v) =>
+      (v == v.roundToDouble()) ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+
   @override
   void initState() {
     super.initState();
-    _h = TextEditingController(text: widget.initHeightCm.toStringAsFixed(0));
+    _h = TextEditingController(text: _fmt(widget.initHeightCm)); // 반올림 방지
     _w = TextEditingController(text: widget.initWeightKg.toStringAsFixed(1));
   }
 
@@ -543,7 +672,8 @@ class _HeightWeightSheetState extends State<HeightWeightSheet> {
                 Expanded(
                   child: TextField(
                     controller: _h,
-                    keyboardType: TextInputType.number,
+                    keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true), // 소수 허용
                     decoration: const InputDecoration(
                       labelText: '키 (cm)',
                       border: OutlineInputBorder(),
@@ -557,7 +687,8 @@ class _HeightWeightSheetState extends State<HeightWeightSheet> {
                 Expanded(
                   child: TextField(
                     controller: _w,
-                    keyboardType: TextInputType.number,
+                    keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true), // 소수 허용
                     decoration: const InputDecoration(
                       labelText: '몸무게 (kg)',
                       border: OutlineInputBorder(),
@@ -584,7 +715,6 @@ class _HeightWeightSheetState extends State<HeightWeightSheet> {
   }
 }
 
-/// 키·몸무게 결과 모델
 class _HWResult {
   final double heightCm;
   final double weightKg;
@@ -592,7 +722,7 @@ class _HWResult {
 }
 
 /// =========================
-/// 풀스크린 다이얼로그(이메일/비번)
+/// 풀스크린 다이얼로그(이메일/비번) — 그대로
 /// =========================
 class TextEditScreen extends StatefulWidget {
   final String title;
@@ -654,7 +784,6 @@ class _TextEditScreenState extends State<TextEditScreen> {
   }
 }
 
-/// 비밀번호 변경(풀스크린)
 class PasswordChangeScreen extends StatelessWidget {
   const PasswordChangeScreen({super.key});
   @override
