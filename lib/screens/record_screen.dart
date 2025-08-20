@@ -73,7 +73,6 @@ String genderLabel(String? gender) {
   }
 }
 
-// 이미지 URL은 assetBaseUrl 기준으로 절대 URL로 변환
 String normalizeUrl(String? url) {
   if (url == null || url.trim().isEmpty) return '';
   final u = url.trim();
@@ -141,7 +140,8 @@ class _RecordScreenState extends State<RecordScreen> {
   int _calcAge(DateTime birth) {
     final now = DateTime.now();
     int age = now.year - birth.year;
-    if (now.month < birth.month || (now.month == birth.month && now.day < birth.day)) {
+    if (now.month < birth.month ||
+        (now.month == birth.month && now.day < birth.day)) {
       age--;
     }
     return age;
@@ -161,8 +161,9 @@ class _RecordScreenState extends State<RecordScreen> {
         return;
       }
 
-      final uri = Uri.parse('$baseUrl/api/users/me'); // API는 기존 baseUrl 사용
-      final res = await httpClient.get(uri, headers: await authHeaders(json: false));
+      final uri = Uri.parse('$baseUrl/api/users/me');
+      final res =
+      await httpClient.get(uri, headers: await authHeaders(json: false));
 
       if (res.statusCode != 200) {
         setState(() {
@@ -184,7 +185,7 @@ class _RecordScreenState extends State<RecordScreen> {
         _heightCm = info.height;
         _weightKg = info.weight;
         _familyName = info.familyName;
-        _profileImageUrl = normalizeUrl(info.profileImageUrl); // 이미지는 assetBaseUrl로 조합
+        _profileImageUrl = normalizeUrl(info.profileImageUrl);
       });
     } catch (_) {
       setState(() {
@@ -203,7 +204,8 @@ class _RecordScreenState extends State<RecordScreen> {
     if (_loading) return;
     setState(() => _loading = true);
     try {
-      final Paged<PersonalWorkout> resp = await api.list(page: 0, size: _size);
+      final Paged<PersonalWorkout> resp =
+      await api.list(page: 0, size: _size);
       setState(() {
         _items
           ..clear()
@@ -240,7 +242,8 @@ class _RecordScreenState extends State<RecordScreen> {
   void _onScroll() {
     if (!_scroll.hasClients) return;
     const threshold = 200.0;
-    if (_scroll.position.maxScrollExtent - _scroll.position.pixels <= threshold) {
+    if (_scroll.position.maxScrollExtent - _scroll.position.pixels <=
+        threshold) {
       _loadMore();
     }
   }
@@ -264,9 +267,10 @@ class _RecordScreenState extends State<RecordScreen> {
         _items.insert(0, created);
       });
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('운동 기록이 추가되었습니다.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('운동 기록이 추가되었습니다.')));
       }
+      // Navigator.pop(context, true); 제거됨
     } catch (e) {
       _showError(e.toString());
     }
@@ -298,7 +302,8 @@ class _RecordScreenState extends State<RecordScreen> {
         memo: result.memo,
       );
       setState(() {
-        final idx = _items.indexWhere((e) => e.workoutId == item.workoutId);
+        final idx =
+        _items.indexWhere((e) => e.workoutId == item.workoutId);
         if (idx != -1) _items[idx] = updated;
       });
       if (mounted) {
@@ -317,8 +322,12 @@ class _RecordScreenState extends State<RecordScreen> {
         title: const Text('삭제'),
         content: const Text('이 운동 기록을 삭제하시겠습니까?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('삭제')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('취소')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('삭제')),
         ],
       ),
     );
@@ -350,7 +359,8 @@ class _RecordScreenState extends State<RecordScreen> {
             width: 56,
             height: 56,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => const Icon(Icons.person, size: 28),
+            errorBuilder: (_, __, ___) =>
+            const Icon(Icons.person, size: 28),
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
               return const SizedBox(
@@ -415,14 +425,21 @@ class _RecordScreenState extends State<RecordScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(titleName, style: Theme.of(context).textTheme.titleMedium),
-                      Text('개인 지표', style: Theme.of(context).textTheme.bodySmall),
+                      Text(titleName,
+                          style: Theme.of(context).textTheme.titleMedium),
+                      Text('개인 지표',
+                          style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
                 ),
                 TextButton.icon(
-                  onPressed: () => setState(() => _detailsOpen = !_detailsOpen),
-                  icon: Icon(_detailsOpen ? Icons.expand_less : Icons.expand_more, size: 18),
+                  onPressed: () =>
+                      setState(() => _detailsOpen = !_detailsOpen),
+                  icon: Icon(
+                      _detailsOpen
+                          ? Icons.expand_less
+                          : Icons.expand_more,
+                      size: 18),
                   label: const Text('상세'),
                 ),
               ],
@@ -430,17 +447,22 @@ class _RecordScreenState extends State<RecordScreen> {
             const SizedBox(height: 12),
             Row(
               children: [
-                _metricChip('키', _heightCm != null ? '${_heightCm!.toStringAsFixed(0)}cm' : '-'),
+                _metricChip('키',
+                    _heightCm != null ? '${_heightCm!.toStringAsFixed(0)}cm' : '-'),
                 const SizedBox(width: 8),
-                _metricChip('몸무게', _weightKg != null ? '${_weightKg!.toStringAsFixed(0)}kg' : '-'),
+                _metricChip('몸무게',
+                    _weightKg != null ? '${_weightKg!.toStringAsFixed(0)}kg' : '-'),
                 const SizedBox(width: 8),
                 _metricChip('나이', _age != null ? '$_age세' : '-'),
                 const SizedBox(width: 8),
-                _metricChip('BMI', (_heightCm != null && _weightKg != null) ? _bmi.toStringAsFixed(1) : '-'),
+                _metricChip('BMI',
+                    (_heightCm != null && _weightKg != null) ? _bmi.toStringAsFixed(1) : '-'),
               ],
             ),
             AnimatedCrossFade(
-              crossFadeState: _detailsOpen ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+              crossFadeState: _detailsOpen
+                  ? CrossFadeState.showFirst
+                  : CrossFadeState.showSecond,
               duration: const Duration(milliseconds: 200),
               firstChild: Padding(
                 padding: const EdgeInsets.only(top: 12),
@@ -448,7 +470,8 @@ class _RecordScreenState extends State<RecordScreen> {
                   children: [
                     const Divider(height: 1),
                     const SizedBox(height: 12),
-                    _detailRow('생년월일', _birthdate != null ? _dateStr(_birthdate!) : '-'),
+                    _detailRow('생년월일',
+                        _birthdate != null ? _dateStr(_birthdate!) : '-'),
                     const SizedBox(height: 8),
                     _detailRow('성별', genderLabel(_gender)),
                     const SizedBox(height: 8),
@@ -469,9 +492,14 @@ class _RecordScreenState extends State<RecordScreen> {
   Widget _detailRow(String label, String value) {
     return Row(
       children: [
-        SizedBox(width: 80, child: Text(label, style: Theme.of(context).textTheme.bodySmall)),
+        SizedBox(
+            width: 80,
+            child:
+            Text(label, style: Theme.of(context).textTheme.bodySmall)),
         const SizedBox(width: 8),
-        Expanded(child: Text(value, style: Theme.of(context).textTheme.bodyMedium)),
+        Expanded(
+            child: Text(value,
+                style: Theme.of(context).textTheme.bodyMedium)),
       ],
     );
   }
@@ -509,7 +537,8 @@ class _RecordScreenState extends State<RecordScreen> {
             return ListTile(
               leading: moodBadge(item.satisfactionLevel),
               title: Text('${_dateStr(item.date)} · ${item.workoutName}'),
-              subtitle: Text('시간 ${item.duration}분 • 컨디션 ${item.satisfactionLevel ?? 0}$memoTail'),
+              subtitle: Text(
+                  '시간 ${item.duration}분 • 컨디션 ${item.satisfactionLevel ?? 0}$memoTail'),
               onTap: () => _onEdit(item),
               trailing: IconButton(
                 icon: const Icon(Icons.delete_outline),
@@ -601,7 +630,8 @@ class _EditSheetState extends State<_EditSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final padding = MediaQuery.of(context).viewInsets + const EdgeInsets.all(16);
+    final padding =
+        MediaQuery.of(context).viewInsets + const EdgeInsets.all(16);
     return Padding(
       padding: padding,
       child: Form(
@@ -620,7 +650,8 @@ class _EditSheetState extends State<_EditSheet> {
               TextFormField(
                 controller: _nameCtrl,
                 decoration: const InputDecoration(labelText: '운동명'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? '운동명을 입력하세요.' : null,
+                validator: (v) =>
+                (v == null || v.trim().isEmpty) ? '운동명을 입력하세요.' : null,
                 maxLength: 100,
               ),
               TextFormField(
@@ -641,7 +672,8 @@ class _EditSheetState extends State<_EditSheet> {
                   const SizedBox(width: 12),
                   DropdownButton<int>(
                     value: _satisfaction,
-                    onChanged: (v) => setState(() => _satisfaction = v ?? 2),
+                    onChanged: (v) =>
+                        setState(() => _satisfaction = v ?? 2),
                     items: const [
                       DropdownMenuItem(value: 1, child: Text('1')),
                       DropdownMenuItem(value: 2, child: Text('2')),
