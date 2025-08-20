@@ -1,28 +1,28 @@
 import 'dart:convert';
-import 'package:fithouse/screens/record_screen.dart';
+import 'package:fithouse/screens/record_screen.dart'; // RecordScreen import
 import 'package:flutter/material.dart';
-import 'package:fithouse/api/http_client.dart';
-import 'package:fithouse/models/family_daily_record.dart';
-import '../main.dart'; // ← routeObserver를 사용하기 위해 main.dart import 필요
+import 'package:fithouse/api/http_client.dart'; // API 클라이언트 import
+import 'package:fithouse/models/family_daily_record.dart'; // 모델 import
 
 // 가족 / 내정보 화면
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
-  static const int dailyGoalMinutes = 60;
+  static const int dailyGoalMinutes = 60; // 일일 목표 운동 시간 (분)
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
-  List<FamilyDailyRecord> _family = [];
-  bool _loading = true;
+  List<FamilyDailyRecord> _family = []; // 가족 일일 기록 리스트
+  bool _loading = true; // 데이터 로딩 중인지 여부
 
-  // 색상 캐시
+  // 색상 캐시: 운동 유형별 색상 저장
   final Map<String, Color> _colorCache = {};
   int _colorIndex = 0;
 
+  // 파스텔톤 색상 리스트
   final pastelColors = const [
     Color(0xFFB3E5FC), // 연한 하늘색
     Color(0xFFFFCDD2), // 연한 핑크
@@ -36,29 +36,16 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
   @override
   void initState() {
     super.initState();
-    _loadFamily();
+    _loadFamily(); // 화면 초기화 시 가족 데이터 로드
   }
 
-  // ← RouteObserver 구독
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    routeObserver.subscribe(this, ModalRoute.of(context)!);
-  }
-
-  // ← RouteObserver 해제
-  @override
-  void dispose() {
-    routeObserver.unsubscribe(this);
-    super.dispose();
-  }
-
-  // 다른 화면에서 뒤로 돌아올 때 호출됨
+  // 다른 화면에서 돌아올 때 데이터 새로고침
   @override
   void didPopNext() {
     _loadFamily();
   }
 
+  // 역할(role)을 한글 라벨로 변환
   String roleLabel(String role) {
     switch (role) {
       case 'GRANDMA':
@@ -78,6 +65,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
     }
   }
 
+  // 가족 일일 기록 데이터를 불러오는 비동기 함수
   Future<void> _loadFamily() async {
     try {
       final uri = Uri.parse('$baseUrl/family/daily-records');
@@ -97,6 +85,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
     }
   }
 
+  // 운동 이름에 해당하는 색상 반환 (캐시 사용)
   Color _colorFor(String workoutName) {
     if (_colorCache.containsKey(workoutName)) {
       return _colorCache[workoutName]!;
@@ -118,8 +107,8 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
       return const Scaffold(body: Center(child: Text('데이터 없음')));
     }
 
-    final me = _family.first;
-    final others = _family.where((m) => m.userId != me.userId).toList();
+    final me = _family.first; // 첫 번째 멤버를 본인으로 간주
+    final others = _family.where((m) => m.userId != me.userId).toList(); // 본인 제외한 나머지 가족
 
     return Scaffold(
       appBar: AppBar(title: const Text('가족 / 내정보')),
@@ -166,23 +155,34 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                         const SizedBox(height: 8),
                         _Legend(
                           segments: me.workoutMinutes.entries
-                              .map((e) => RingSegment(
-                              e.key, e.value, _colorFor(e.key)))
+                              .map((e) =>
+                              RingSegment(e.key, e.value, _colorFor(e.key)))
                               .toList(),
                         ),
                         const SizedBox(height: 8),
                         Text('${me.totalMinutes}분',
                             style: const TextStyle(fontSize: 12)),
                         const SizedBox(height: 12),
-                        FilledButton(
+                        // "내 기록" 버튼 (강조된 스타일)
+                        TextButton.icon(
                           onPressed: () async {
+                            // 본인 기록이므로 userId를 전달하지 않습니다 (RecordScreen에서 기본값 사용).
                             await Navigator.push(
                               context,
                               MaterialPageRoute(
                                   builder: (_) => const RecordScreen()),
                             );
                           },
-                          child: const Text('내 기록'),
+                          icon: const Icon(Icons.fitness_center), // 피트니스 아이콘
+                          label: const Text('내 기록'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: theme.colorScheme.primary, // 테마의 기본 색상 사용
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20), // 더 둥근 모서리
+                              side: BorderSide(color: theme.colorScheme.primary.withOpacity(0.5)), // 연한 테두리
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          ),
                         ),
                       ],
                     ),
@@ -211,6 +211,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
   }
 }
 
+// 가족 구성원 타일 위젯
 class _FamilyTile extends StatelessWidget {
   final FamilyDailyRecord member;
   final int goalMinutes;
@@ -227,13 +228,22 @@ class _FamilyTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = member.totalMinutes;
+    final theme = Theme.of(context);
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () {},
+        onTap: () {
+          // 가족 구성원 프로필 클릭 시 해당 멤버의 기록 화면으로 이동
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RecordScreen(userId: member.userId), // 멤버의 userId를 전달
+            ),
+          );
+        },
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -256,16 +266,40 @@ class _FamilyTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(member.name,
-                        style: Theme.of(context).textTheme.titleMedium),
+                        style: theme.textTheme.titleMedium),
                     const SizedBox(height: 2),
                     Text(roleText,
-                        style: Theme.of(context).textTheme.bodySmall),
+                        style: theme.textTheme.bodySmall),
                     const SizedBox(height: 8),
                     _Legend(
                       segments: member.workoutMinutes.entries
                           .map((e) =>
                           RingSegment(e.key, e.value, colorFor(e.key)))
                           .toList(),
+                    ),
+                    const SizedBox(height: 8), // 새 버튼을 위한 공간
+                    // "기록 보기" 버튼 (가족 구성원용)
+                    TextButton.icon(
+                      onPressed: () {
+                        // "기록 보기" 버튼 클릭 시 해당 멤버의 기록 화면으로 이동
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => RecordScreen(userId: member.userId), // 멤버의 userId를 전달
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.remove_red_eye_outlined, size: 18), // 눈 아이콘
+                      label: const Text('기록 보기'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: theme.colorScheme.secondary, // 보조 색상 사용
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: theme.colorScheme.secondary.withOpacity(0.5)),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        textStyle: const TextStyle(fontSize: 12),
+                      ),
                     ),
                   ],
                 ),
@@ -280,6 +314,7 @@ class _FamilyTile extends StatelessWidget {
   }
 }
 
+// 범례 위젯
 class _Legend extends StatelessWidget {
   final List<RingSegment> segments;
   const _Legend({required this.segments});
@@ -311,6 +346,7 @@ class _Legend extends StatelessWidget {
   }
 }
 
+// 링 세그먼트 데이터 모델
 class RingSegment {
   final String label;
   final int minutes;
@@ -318,6 +354,7 @@ class RingSegment {
   const RingSegment(this.label, this.minutes, this.color);
 }
 
+// 링 아바타 위젯 (프로필 이미지와 운동 진행률 링)
 class RingAvatar extends StatelessWidget {
   final List<RingSegment> segments;
   final int goalMinutes;
@@ -355,12 +392,13 @@ class RingAvatar extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: imageUrl != null && imageUrl!.trim().isNotEmpty
             ? Image.network(imageUrl!, fit: BoxFit.cover)
-            : const _AvatarFallback(),
+            : const _AvatarFallback(), // 이미지 없을 때 폴백
       ),
     );
   }
 }
 
+// 아바타 폴백 위젯 (이미지 없을 때 표시)
 class _AvatarFallback extends StatelessWidget {
   const _AvatarFallback();
   @override
@@ -368,6 +406,7 @@ class _AvatarFallback extends StatelessWidget {
       const Center(child: Icon(Icons.person, size: 36));
 }
 
+// 링 진행률 위젯 (다중 세그먼트)
 class RingProgress extends StatelessWidget {
   final List<RingSegment> segments;
   final int goalMinutes;
@@ -383,7 +422,7 @@ class RingProgress extends StatelessWidget {
     this.size = 90,
     this.stroke = 10,
     this.centerBuilder,
-    this.backgroundColor = const Color(0xFFDADCE0),
+    this.backgroundColor = const Color(0xFFDADCE0), // 배경 색상
   });
 
   @override
@@ -406,6 +445,7 @@ class RingProgress extends StatelessWidget {
   }
 }
 
+// 다중 세그먼트 링을 그리는 커스텀 페인터
 class _MultiSegmentRingPainter extends CustomPainter {
   final List<RingSegment> segments;
   final int goalMinutes;
@@ -429,21 +469,23 @@ class _MultiSegmentRingPainter extends CustomPainter {
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
+    // 배경 링 그리기
     paint.color = background;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
-      _deg(-90),
-      _deg(360),
+      _deg(-90), // 시작 각도 (상단)
+      _deg(360), // 전체 원
       false,
       paint,
     );
 
+    // 각 운동 세그먼트 그리기
     double startAngle = _deg(-90);
     for (final s in segments) {
       final part = s.minutes.clamp(0, goalMinutes);
       if (part <= 0) continue;
 
-      final sweep = (part / goalMinutes) * 360;
+      final sweep = (part / goalMinutes) * 360; // 각도 계산
       if (sweep <= 0) continue;
 
       paint.color = s.color;
@@ -454,7 +496,7 @@ class _MultiSegmentRingPainter extends CustomPainter {
         false,
         paint,
       );
-      startAngle += _deg(sweep);
+      startAngle += _deg(sweep); // 다음 세그먼트의 시작 각도 업데이트
     }
   }
 
@@ -465,5 +507,6 @@ class _MultiSegmentRingPainter extends CustomPainter {
           old.strokeWidth != strokeWidth ||
           old.background != background;
 
+  // 각도를 라디안으로 변환하는 헬퍼 함수
   double _deg(double d) => d * 3.1415926535897932 / 180.0;
 }
