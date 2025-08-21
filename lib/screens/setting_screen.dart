@@ -30,7 +30,6 @@ class _SettingScreenState extends State<SettingScreen> {
   bool _loading = true;
   String? _error;
 
-  // 정수면 170, 소수면 177.7 로 표시
   String _fmtNum(double v) =>
       (v == v.roundToDouble()) ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
 
@@ -97,7 +96,6 @@ class _SettingScreenState extends State<SettingScreen> {
     );
 
     if (!mounted || updated == null) return;
-
     setState(() => _profile = updated);
   }
 
@@ -134,16 +132,19 @@ class _SettingScreenState extends State<SettingScreen> {
     }
 
     final p = _profile!;
-    final themeText = Theme.of(context).textTheme;
+    final textTheme = Theme.of(context).textTheme;
 
-    // ✅ 여기서 소수 유지 포맷 적용
     final heightCm = p.height == null ? '-' : _fmtNum(p.height!);
     final weightKg = p.weight == null ? '-' : p.weight!.toStringAsFixed(1);
     final bmi = p.bmi == null ? '-' : p.bmi!.toStringAsFixed(1);
 
-    final avatarAbsUrl = _abs(p.profileImageUrl) ?? FirebaseAuth.instance.currentUser?.photoURL;
+    final avatarAbsUrl =
+        _abs(p.profileImageUrl) ?? FirebaseAuth.instance.currentUser?.photoURL;
     final nickname = p.name ?? '사용자';
     final familyName = p.familyName;
+
+    final hwLine = '키/몸무게: $heightCm cm / $weightKg kg';
+    final hwWithBmi = (bmi == '-') ? hwLine : '$hwLine (BMI $bmi)';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -152,14 +153,16 @@ class _SettingScreenState extends State<SettingScreen> {
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            // 상단 프로필 카드
+            // ===== 상단 프로필 영역 =====
             Padding(
               padding: const EdgeInsets.all(16),
               child: Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // 프로필 사진
                       CircleAvatar(
                         radius: 28,
                         backgroundImage: (avatarAbsUrl != null && avatarAbsUrl.isNotEmpty)
@@ -170,26 +173,55 @@ class _SettingScreenState extends State<SettingScreen> {
                             : null,
                       ),
                       const SizedBox(width: 12),
+
                       Expanded(
-                        child: DefaultTextStyle.merge(
-                          style: const TextStyle(height: 1.25),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(nickname, style: themeText.titleMedium),
-                              const SizedBox(height: 4),
-                              if (familyName != null && familyName.isNotEmpty)
-                                Text('가족: $familyName'),
-                              Text('키/몸무게: $heightCm cm / $weightKg kg'),
-                              Text('BMI: $bmi'),
-                            ],
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    nickname,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: (textTheme.titleLarge ??
+                                        const TextStyle(fontSize: 40))
+                                        .copyWith(fontWeight: FontWeight.w500, fontSize: 22),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.settings),
+                                  tooltip: '내 정보 수정',
+                                  onPressed: _openEditProfile,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+
+                            // 가족명 (있을 때만)
+                            if (familyName != null && familyName.isNotEmpty)
+                              Text(
+                                '가족: $familyName',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(height: 1.25),
+                              ),
+
+                            const SizedBox(height: 2),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Text(
+                                hwWithBmi,
+                                softWrap: false,
+                                style: const TextStyle(height: 1.25),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.settings),
-                        tooltip: '내 정보 수정',
-                        onPressed: _openEditProfile,
                       ),
                     ],
                   ),
@@ -197,51 +229,69 @@ class _SettingScreenState extends State<SettingScreen> {
               ),
             ),
 
-            // 계정 설정
-            const _SectionTitle('계정 설정'),
-            SwitchListTile(
-              title: const Text('운동 알림'),
-              value: _workoutNoti,
-              onChanged: (v) {
-                setState(() => _workoutNoti = v);
-                // TODO: 서버/FCM 동기화 필요 시 붙이기
-              },
-            ),
-            SwitchListTile(
-              title: const Text('공지 알림'),
-              value: _noticeNoti,
-              onChanged: (v) {
-                setState(() => _noticeNoti = v);
-                // TODO: 서버 동기화
-              },
-            ),
-            ListTile(
-              title: const Text('계정 연동'),
-              subtitle: const Text('Google 연동됨'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // TODO: 계정 연동 상세 화면
-              },
+            const _BlockSpacer(),
+
+            const _BoldSectionHeader('계정 설정'),
+            _Section(
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    title: const Text('운동 알림'),
+                    value: _workoutNoti,
+                    onChanged: (v) => setState(() => _workoutNoti = v),
+                  ),
+                  SwitchListTile(
+                    title: const Text('공지 알림'),
+                    value: _noticeNoti,
+                    onChanged: (v) => setState(() => _noticeNoti = v),
+                  ),
+                  ListTile(
+                    title: const Text('계정 연동'),
+                    subtitle: const Text('Google 연동됨'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      // TODO: 계정 연동 상세
+                    },
+                  ),
+                ],
+              ),
             ),
 
-            // 기타
-            const _SectionTitle('기타'),
-            ListTile(title: const Text('고객센터'), onTap: () {}),
-            ListTile(title: const Text('공지사항'), onTap: () {}),
-            ListTile(title: const Text('약관 및 개인정보 처리방침'), onTap: () {}),
-            const ListTile(title: Text('앱 버전'), subtitle: Text('2.0.7')),
+            const _BlockSpacer(),
 
-            ListTile(
-              title: const Text('로그아웃'),
-              onTap: _signOut,
+            const _BoldSectionHeader('기타'),
+            _Section(
+              child: Column(
+                children: const [
+                  ListTile(title: Text('고객센터')),
+                  ListTile(title: Text('공지사항')),
+                  ListTile(title: Text('약관 및 개인정보 처리방침')),
+                  ListTile(title: Text('앱 버전'), subtitle: Text('2.0.7')),
+                ],
+              ),
             ),
-            ListTile(
-              title: const Text('회원 탈퇴'),
-              textColor: Colors.red,
-              onTap: () async {
-                // TODO
-              },
+
+            const _BlockSpacer(),
+
+            _Section(
+              child: Column(
+                children: [
+                  ListTile(
+                    title: const Text('로그아웃'),
+                    onTap: _signOut,
+                  ),
+                  ListTile(
+                    title: const Text('회원 탈퇴',
+                        style:
+                        TextStyle(color: Colors.red)),
+                    onTap: () async {
+                      // TODO: 탈퇴 확인 + 서버 요청
+                    },
+                  ),
+                ],
+              ),
             ),
+
             const SizedBox(height: 16),
           ],
         ),
@@ -250,15 +300,36 @@ class _SettingScreenState extends State<SettingScreen> {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
+class _BlockSpacer extends StatelessWidget {
+  const _BlockSpacer();
+  @override
+  Widget build(BuildContext context) =>
+      Container(height: 6, color: const Color(0xFFF2F3F5));
+}
+
+class _BoldSectionHeader extends StatelessWidget {
   final String text;
-  const _SectionTitle(this.text, {super.key});
+  const _BoldSectionHeader(this.text, {super.key});
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+    padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
     child: Text(
       text,
-      style: Theme.of(context).textTheme.titleSmall,
+      style: const TextStyle(
+        fontWeight: FontWeight.w700,
+        fontSize: 16,
+      ),
     ),
+  );
+}
+
+class _Section extends StatelessWidget {
+  final Widget child;
+  const _Section({required this.child, super.key});
+  @override
+  Widget build(BuildContext context) => Container(
+    color: Colors.white,
+    padding: const EdgeInsets.symmetric(horizontal: 8),
+    child: child,
   );
 }
