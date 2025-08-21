@@ -1,12 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-// 서버 통신
 import '../api/user_profile_api.dart';
 import '../models/user_profile.dart';
+import 'password_change_screen.dart';
 
-/// 서버 베이스 URL (아바타 미리보기 절대 경로 변환용)
 const _baseUrl = 'http://marketalert.iptime.org:8080';
 String? _abs(String? url) {
   if (url == null || url.isEmpty) return null;
@@ -15,9 +15,6 @@ String? _abs(String? url) {
   return '$_baseUrl$url';
 }
 
-/// =========================
-/// 프로필 데이터 모델 (초기값 컨테이너)
-/// =========================
 class ProfileData {
   final String nickname;
   final String? birth;
@@ -50,17 +47,17 @@ class ProfileData {
   }
 }
 
-/// =========================
-/// 내 정보 수정 화면
-/// =========================
+// 내 정보 수정 화면
 class SettingEditProfileScreen extends StatefulWidget {
   final ProfileData initial;
-  final String? currentImageUrl; // ← 초기 아바타 프리뷰용 (상대경로 가능)
+  final String? currentImageUrl;
+  final bool hasFamily;
 
   const SettingEditProfileScreen({
     super.key,
     required this.initial,
     this.currentImageUrl,
+    this.hasFamily = false,
   });
 
   @override
@@ -69,18 +66,14 @@ class SettingEditProfileScreen extends StatefulWidget {
 }
 
 class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
-  // 서버 통신/이미지 선택
   final _api = UserProfileApi();
   final _picker = ImagePicker();
 
-  // 저장 중 여부 & 이미지 업로드 결과
   bool _saving = false;
-  UserProfile? _latestFromServer; // 이미지 업/삭제 등으로 갱신된 최신 프로필
+  UserProfile? _latestFromServer;
 
-  // 아바타 프리뷰 URL(절대경로)
   String? avatarUrl;
 
-  // 폼 상태
   late final TextEditingController _nick;
   late String _birth;
   late String _email;
@@ -96,7 +89,6 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
     _heightCm = widget.initial.heightCm ?? 170;
     _weightKg = widget.initial.weightKg ?? 65;
 
-    // 초기 아바타 프리뷰 세팅
     avatarUrl = _abs(widget.currentImageUrl);
   }
 
@@ -108,7 +100,6 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
 
   double get _bmi => _weightKg / ((_heightCm / 100) * (_heightCm / 100));
 
-  // 정수면 170, 소수면 177.7 식으로 표시
   String _fmtNum(double v) =>
       (v == v.roundToDouble()) ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
 
@@ -127,10 +118,10 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
     if (_saving) return;
     setState(() => _saving = true);
     try {
-      final updated = await _api.uploadProfileImage(file.path); // PATCH /profile-image
+      final updated = await _api.uploadProfileImage(file.path);
       _latestFromServer = updated;
       setState(() {
-        avatarUrl = _abs(updated.profileImageUrl); // 미리보기 갱신
+        avatarUrl = _abs(updated.profileImageUrl);
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -191,11 +182,9 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
       UserProfile? result;
 
       if (payload.isNotEmpty) {
-        // 서버가 BMI/나이 재계산
         result = await _api.updateProfile(payload);
       }
 
-      // 필드 변경 없이 이미지 업로드만 했으면 그 결과 사용
       result ??= _latestFromServer;
 
       if (!mounted) return;
@@ -256,7 +245,7 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
           Center(
             child: InkWell(
               borderRadius: BorderRadius.circular(999),
-              onTap: _pickFromGallery, // 아바타 탭 → 갤러리
+              onTap: _pickFromGallery,
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
@@ -272,7 +261,7 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
                     bottom: 0,
                     child: IconButton.filledTonal(
                       style: IconButton.styleFrom(padding: const EdgeInsets.all(6)),
-                      onPressed: _pickFromGallery, // 연필 버튼 → 갤러리
+                      onPressed: _pickFromGallery,
                       icon: const Icon(Icons.edit, size: 20),
                     ),
                   ),
@@ -352,29 +341,49 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
 
           const _BlockSpacer(),
 
-          // ===== 이메일 & 비밀번호 변경 (풀스크린) — 그대로 유지 =====
+          // ===== 이메일 (읽기 전용) & 비밀번호 변경 =====
           _Section(
             child: Column(
               children: [
+                // 이메일: 읽기 전용
                 _InfoRow(
                   label: '이메일',
-                  value: _email.isEmpty ? '미등록' : _email,
-                  onEdit: () async {
-                    final res = await _openFullscreen<String>(
-                      const TextEditScreen(title: '이메일 변경', label: '이메일'),
-                    );
-                    if (res != null) setState(() => _email = res);
-                  },
-                ),
-                const Divider(height: 1),
-                _InfoRow(
-                  label: '비밀번호 변경',
-                  value: '',
+                  value: _email,
                   showTrailingButton: false,
                   onEdit: () {},
-                  onTapRow: () async {
-                    final ok =
-                    await _openFullscreen<bool>(const PasswordChangeScreen());
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                ),
+                const Divider(height: 1),
+
+                // 비밀번호 변경
+                ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 6),
+                  title: const Text(
+                    '비밀번호 변경',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                  ),
+                  trailing: null,
+                  onTap: () async {
+                    final user = FirebaseAuth.instance.currentUser;
+                    final isEmailPassword =
+                        user?.providerData.any((p) => p.providerId == 'password') ?? false;
+
+                    if (!isEmailPassword) {
+                      await showDialog(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text('비밀번호 변경 불가'),
+                          content: const Text('소셜 로그인 계정은 비밀번호를 변경할 수 없습니다.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('확인')),
+                          ],
+                        ),
+                      );
+                      return;
+                    }
+
+                    final ok = await _openFullscreen<bool>(const PasswordChangeScreen());
                     if (ok == true && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('비밀번호가 변경되었습니다.')),
@@ -389,50 +398,51 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
           const _BlockSpacer(),
 
           // ===== 가족 탈퇴 =====
-          _Section(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '가족을 탈퇴하면 가족 피드/기록 공유 기능을 사용할 수 없습니다.',
-                  style: TextStyle(fontSize: 14),
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red),
+          if (widget.hasFamily)
+            _Section(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '가족을 탈퇴하면 가족 피드/기록 공유 기능을 사용할 수 없습니다.',
+                    style: TextStyle(fontSize: 14),
                   ),
-                  onPressed: () async {
-                    final ok = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('가족 탈퇴'),
-                        content: const Text('소속 가족에서 탈퇴하시겠어요? 이 작업은 되돌릴 수 없습니다.'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, false),
-                            child: const Text('취소'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text('탈퇴'),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (ok == true && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('가족에서 탈퇴했습니다.')),
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                    ),
+                    onPressed: () async {
+                      final ok = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('가족 탈퇴'),
+                          content: const Text('소속 가족에서 탈퇴하시겠어요? 이 작업은 되돌릴 수 없습니다.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('취소'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('탈퇴'),
+                            ),
+                          ],
+                        ),
                       );
-                    }
-                  },
-                  child: const Text('소속 가족 탈퇴'),
-                ),
-              ],
+                      if (ok == true && context.mounted) {
+                        // TODO: 서버에 가족 탈퇴 API 호출
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('가족에서 탈퇴했습니다.')),
+                        );
+                      }
+                    },
+                    child: const Text('소속 가족 탈퇴'),
+                  ),
+                ],
+              ),
             ),
-          ),
-
           const SizedBox(height: 24),
         ],
       ),
@@ -440,9 +450,6 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
   }
 }
 
-/// =========================
-/// 공용 위젯 (디자인 그대로)
-/// =========================
 class _Section extends StatelessWidget {
   final Widget child;
   const _Section({required this.child});
@@ -522,9 +529,6 @@ class _FieldLabel extends StatelessWidget {
   );
 }
 
-/// =========================
-/// 바텀시트 공용 핸들
-/// =========================
 class _SheetHandle extends StatelessWidget {
   const _SheetHandle({super.key});
   @override
@@ -543,9 +547,6 @@ class _SheetHandle extends StatelessWidget {
   );
 }
 
-/// =========================
-/// 바텀시트 - 텍스트 입력 (생년월일 등)
-/// =========================
 class TextEditSheet extends StatefulWidget {
   final String label;
   final String initial;
@@ -607,9 +608,6 @@ class _TextEditSheetState extends State<TextEditSheet> {
   }
 }
 
-/// =========================
-/// 바텀시트 - 키/몸무게
-/// =========================
 class HeightWeightSheet extends StatefulWidget {
   final double initHeightCm;
   final double initWeightKg;
@@ -633,7 +631,7 @@ class _HeightWeightSheetState extends State<HeightWeightSheet> {
   @override
   void initState() {
     super.initState();
-    _h = TextEditingController(text: _fmt(widget.initHeightCm)); // 반올림 방지
+    _h = TextEditingController(text: _fmt(widget.initHeightCm));
     _w = TextEditingController(text: widget.initWeightKg.toStringAsFixed(1));
   }
 
@@ -673,7 +671,7 @@ class _HeightWeightSheetState extends State<HeightWeightSheet> {
                   child: TextField(
                     controller: _h,
                     keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true), // 소수 허용
+                    const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
                       labelText: '키 (cm)',
                       border: OutlineInputBorder(),
@@ -688,7 +686,7 @@ class _HeightWeightSheetState extends State<HeightWeightSheet> {
                   child: TextField(
                     controller: _w,
                     keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true), // 소수 허용
+                    const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
                       labelText: '몸무게 (kg)',
                       border: OutlineInputBorder(),
@@ -719,94 +717,4 @@ class _HWResult {
   final double heightCm;
   final double weightKg;
   _HWResult(this.heightCm, this.weightKg);
-}
-
-/// =========================
-/// 풀스크린 다이얼로그(이메일/비번) — 그대로
-/// =========================
-class TextEditScreen extends StatefulWidget {
-  final String title;
-  final String label;
-  final String initial;
-  const TextEditScreen({
-    super.key,
-    required this.title,
-    required this.label,
-    this.initial = '',
-  });
-
-  @override
-  State<TextEditScreen> createState() => _TextEditScreenState();
-}
-
-class _TextEditScreenState extends State<TextEditScreen> {
-  late final TextEditingController _c;
-  @override
-  void initState() {
-    super.initState();
-    _c = TextEditingController(text: widget.initial);
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(widget.title),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, _c.text.trim()),
-            child: const Text('저장'),
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: TextField(
-          controller: _c,
-          decoration: InputDecoration(
-            labelText: widget.label,
-            border: const OutlineInputBorder(),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class PasswordChangeScreen extends StatelessWidget {
-  const PasswordChangeScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('비밀번호 변경'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.pop(context, false),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              // TODO: Firebase updatePassword 로직
-              Navigator.pop(context, true);
-            },
-            child: const Text('저장'),
-          )
-        ],
-      ),
-      body: const Center(child: Text('비밀번호 변경 화면 구현 예정')),
-    );
-  }
 }
