@@ -91,6 +91,7 @@ class _SettingScreenState extends State<SettingScreen> {
         builder: (_) => SettingEditProfileScreen(
           initial: initial,
           currentImageUrl: p.profileImageUrl,
+          hasFamily: p.familyId != null,
         ),
       ),
     );
