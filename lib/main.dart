@@ -24,14 +24,7 @@ RouteObserver<ModalRoute<void>>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ChatProvider()),
-      ],
-      child: FitHouseApp(),
-    ),
-  );
+  runApp(FitHouseApp());
 }
 
 class FitHouseApp extends StatelessWidget {
@@ -81,6 +74,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    // 스플래시 화면이 2초 후 AuthGate로 이동하도록 합니다.
     Timer(const Duration(seconds: 2), () {
       if (!mounted) return;
       Navigator.pushReplacement(
@@ -92,6 +86,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // SplashScreen은 로고만 보여주는 역할만 담당합니다.
     return const Scaffold(
       backgroundColor: Colors.white,
       body: Center(
@@ -109,6 +104,7 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // AuthGate가 로그인 상태를 확인하여 화면을 분기합니다.
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (_, snap) {
@@ -119,9 +115,16 @@ class AuthGate extends StatelessWidget {
         }
         final user = snap.data;
         if (user == null) {
+          // 1. 로그아웃 상태이면 로그인 화면을 보여줍니다.
           return const LoginScreen();
         }
-        return MainScreen();
+        // 2. 로그인 상태이면, 해당 사용자만을 위한 새로운 ChatProvider를 생성하고
+        //    MainScreen을 보여줍니다.
+        return ChangeNotifierProvider(
+          key: ValueKey(user.uid), // 사용자가 바뀔 때마다 Provider를 새로 만듭니다.
+          create: (context) => ChatProvider(),
+          child: MainScreen(),
+        );
       },
     );
   }

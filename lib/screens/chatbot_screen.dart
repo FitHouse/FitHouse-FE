@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import '../constants/colors.dart';
 import 'video_player_dialog.dart';
-
 import '../providers/chat_provider.dart';
 import '../models/chat_message.dart';
 import '../models/exercise_video.dart';
@@ -16,23 +14,21 @@ class ChatbotScreen extends StatefulWidget {
 }
 
 class _ChatbotScreenState extends State<ChatbotScreen> {
-  // 기능 관련 코드는 그대로 유지됩니다.
   final TextEditingController _controller = TextEditingController();
   String? currentUserUid;
 
+  // 👍 initState와 dispose가 매우 간단해집니다.
   @override
   void initState() {
     super.initState();
+    // 현재 사용자 UID만 가져오면 됩니다.
     currentUserUid = FirebaseAuth.instance.currentUser?.uid;
-    FirebaseAuth.instance.authStateChanges().listen((user) {
-      final previousUid = currentUserUid;
-      setState(() {
-        currentUserUid = user?.uid;
-      });
-      if (user != null && user.uid != previousUid) {
-        context.read<ChatProvider>().clearMessages();
-      }
-    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose(); // 컨트롤러만 정리합니다.
+    super.dispose();
   }
 
   void _sendQuestion() async {
