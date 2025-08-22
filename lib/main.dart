@@ -62,7 +62,7 @@ class FitHouseApp extends StatelessWidget {
           bodyLarge: TextStyle(color: black),
           bodyMedium: TextStyle(color: Colors.black87),
         ),
-        fontFamily: 'Pretendard',
+        fontFamily: 'PyeojinGothic',
         useMaterial3: false,
       ),
       home: const SplashScreen(),
