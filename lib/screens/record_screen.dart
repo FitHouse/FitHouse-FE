@@ -12,11 +12,13 @@ import 'package:fithouse/models/personal_workout.dart';
 String moodEmoji(int? level) {
   switch (level) {
     case 1:
-      return '😵';
+      return '😵'; // 매우 힘듦
     case 2:
-      return '🙂';
+      return '😣'; // 힘듦
     case 3:
-      return '😄';
+      return '🙂'; // 보통
+    case 4:
+      return '😄'; // 만족
     default:
       return '❓';
   }
@@ -25,11 +27,13 @@ String moodEmoji(int? level) {
 Color moodColor(int? level) {
   switch (level) {
     case 1:
-      return Colors.redAccent;
+      return Colors.redAccent;   // 매우 힘듦
     case 2:
-      return Colors.amber;
+      return Colors.orange;      // 힘듦
     case 3:
-      return Colors.green;
+      return Colors.amber;       // 보통
+    case 4:
+      return Colors.green;       // 만족
     default:
       return Colors.grey;
   }
@@ -632,7 +636,7 @@ class _EditSheetState extends State<_EditSheet> {
   late DateTime _date;
   final _nameCtrl = TextEditingController();
   final _durationCtrl = TextEditingController();
-  int _satisfaction = 2;
+  int _satisfaction = 3;
   final _memoCtrl = TextEditingController();
 
   @override
@@ -724,11 +728,12 @@ class _EditSheetState extends State<_EditSheet> {
                   DropdownButton<int>(
                     value: _satisfaction,
                     onChanged: (v) =>
-                        setState(() => _satisfaction = v ?? 2),
+                        setState(() => _satisfaction = v ?? 3),
                     items: const [
-                      DropdownMenuItem(value: 1, child: Text('1')),
-                      DropdownMenuItem(value: 2, child: Text('2')),
-                      DropdownMenuItem(value: 3, child: Text('3')),
+                      DropdownMenuItem(value: 1, child: Text('매우 힘듦')),
+                      DropdownMenuItem(value: 2, child: Text('힘듦')),
+                      DropdownMenuItem(value: 3, child: Text('보통')),
+                      DropdownMenuItem(value: 4, child: Text('만족')),
                     ],
                   ),
                   const SizedBox(width: 12),
