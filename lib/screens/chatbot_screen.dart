@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
+import '../constants/colors.dart';
 import 'video_player_dialog.dart';
 
 import '../providers/chat_provider.dart';
@@ -208,7 +209,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           const SizedBox(width: 8),
           Container(
             decoration: BoxDecoration(
-              color: Color(0xFF32CB56),
+              color: Color(0xFF50D31D),
               shape: BoxShape.circle,
             ),
             child: IconButton(
@@ -250,7 +251,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF32CB56),
+                    backgroundColor: buttonGreen,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 15),
                     shape: RoundedRectangleBorder(

@@ -18,9 +18,9 @@ class CommunityScreen extends StatelessWidget {
               Container(
                 color: white,
                 child: const TabBar(
-                  labelColor: mainGreen,
+                  labelColor: Color(0xFF32CB56),
                   unselectedLabelColor: grey,
-                  indicatorColor: mainGreen,
+                  indicatorColor: Color(0xFF32CB56),
                   tabs: [
                     Tab(text: '커뮤니티'),
                     Tab(text: '산책로 추천'),
