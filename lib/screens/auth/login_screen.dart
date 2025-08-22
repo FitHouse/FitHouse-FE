@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'signup_screen.dart';
+import 'package:fithouse/constants/colors.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -34,7 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final s = v?.trim() ?? '';
     if (s.isEmpty) return '이메일을 입력하세요';
     final ok = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(s);
-    return ok ? null : '올바른 이메일 형식이 아닙니다';
+    return ok ? null : '올바른 이메일 형식입니다';
   }
 
   String? _validatePw(String? v) {
@@ -100,7 +101,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-
       body: SafeArea(
         child: GestureDetector(
           onTap: () => FocusScope.of(context).unfocus(),
@@ -121,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           fontSize: 60,
                           fontWeight: FontWeight.w900,
                           letterSpacing: -0.5,
-                          color: const Color(0xFF488500),
+                            color: const Color(0xFF488500),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -137,16 +137,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextFormField(
                         controller: _email,
                         keyboardType: TextInputType.emailAddress,
+                        cursorColor: buttonGreen, // <-- 커서도 초록
                         decoration: InputDecoration(
                           labelText: '이메일 주소',
                           filled: true,
                           fillColor: Colors.grey.shade50,
                           border: _roundedBorder(grey),
                           enabledBorder: _roundedBorder(grey),
-                          focusedBorder:
-                          _roundedBorder(theme.colorScheme.primary),
+                          focusedBorder: _roundedBorder(buttonGreen),
                           contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 14),
+                            horizontal: 14,
+                            vertical: 14,
+                          ),
                         ),
                         validator: _validateEmail,
                         onChanged: (_) {
@@ -161,25 +163,26 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextFormField(
                         controller: _pw,
                         obscureText: !_showPw,
+                        cursorColor: buttonGreen,
                         decoration: InputDecoration(
                           labelText: '비밀번호',
                           filled: true,
                           fillColor: Colors.grey.shade50,
                           border: _roundedBorder(grey),
                           enabledBorder: _roundedBorder(grey),
-                          focusedBorder:
-                          _roundedBorder(theme.colorScheme.primary),
+                          focusedBorder: _roundedBorder(buttonGreen),
                           contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 14),
+                            horizontal: 14,
+                            vertical: 14,
+                          ),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _showPw
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
+                              _showPw ? Icons.visibility_off : Icons.visibility,
                             ),
                             onPressed: () =>
                                 setState(() => _showPw = !_showPw),
-                            tooltip: _showPw ? '비밀번호 숨기기' : '비밀번호 보기',
+                            tooltip:
+                            _showPw ? '비밀번호 숨기기' : '비밀번호 보기',
                           ),
                         ),
                         validator: _validatePw,
@@ -192,8 +195,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       if (_error != null) ...[
                         const SizedBox(height: 8),
-                        Text(_error!,
-                            style: const TextStyle(color: Colors.red)),
+                        Text(
+                          _error!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
                       ],
 
                       const SizedBox(height: 22),
@@ -202,6 +207,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         height: 52,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
+                            backgroundColor: buttonGreen,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.grey.shade300,
+                            disabledForegroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
@@ -212,7 +221,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             height: 22,
                             width: 22,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2),
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                               : const Text('로그인'),
                         ),
@@ -225,13 +236,17 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           const Text('계정이 없으신가요?'),
                           TextButton(
+                            style: TextButton.styleFrom(
+                              foregroundColor: buttonGreen,
+                            ),
                             onPressed: _loading
                                 ? null
                                 : () async {
                               final ok = await Navigator.push<bool>(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const SignupWizardScreen(),
+                                  builder: (_) =>
+                                  const SignupWizardScreen(),
                                 ),
                               );
                               if (ok == true && mounted) {
