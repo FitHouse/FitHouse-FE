@@ -81,6 +81,21 @@ flutter:
     - assets/images/question.png
 
 
+  fonts:
+    - family: PyeojinGothic
+      fonts:
+        - asset: assets/fonts/PyeojinGothic-Light.ttf
+          weight: 300
+        - asset: assets/fonts/PyeojinGothic-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/PyeojinGothic-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/PyeojinGothic-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/PyeojinGothic-Bold.ttf
+          weight: 700
+
+# To add custom assets to your application, add an assets section here,
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
