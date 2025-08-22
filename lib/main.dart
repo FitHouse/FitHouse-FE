@@ -42,7 +42,7 @@ class FitHouseApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       navigatorObservers: [routeObserver], // RouteObserver 등록
       theme: ThemeData(
-        scaffoldBackgroundColor: bgBeige,
+        scaffoldBackgroundColor: Colors.white,
         primaryColor: mainGreen,
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
