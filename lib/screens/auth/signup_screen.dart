@@ -619,6 +619,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         backgroundColor: Colors.white,
         appBar: AppBar(
           title: const Text('회원가입'),
