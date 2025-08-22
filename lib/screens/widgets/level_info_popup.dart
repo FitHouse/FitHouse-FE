@@ -19,23 +19,35 @@ class LevelInfoPopup extends StatelessWidget {
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
-        children: List.generate(levels.length, (index) {
-          bool locked = index + 1 > 1; // 현재 레벨보다 높으면 ? 아이콘
-          return ListTile(
-            leading: Image.asset(
-              locked ? 'assets/images/question.png' : levels[index]["img"]!,
-              height: 40,
-              width: 40,
-              fit: BoxFit.contain,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "※ 주간 업데이트는 월요일 자정에 갱신됩니다.",
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey,
             ),
-            title: Text(
-              levels[index]["text"]!,
-              style: const TextStyle(fontSize: 15),
-            ),
-            contentPadding: const EdgeInsets.symmetric(vertical: 4),
-            dense: true,
-          );
-        }),
+          ),
+          const SizedBox(height: 12),
+          ...List.generate(levels.length, (index) {
+            bool locked = index + 1 > 1; // 현재 레벨보다 높으면 ? 아이콘
+            return ListTile(
+              leading: Image.asset(
+                locked ? 'assets/images/question.png' : levels[index]["img"]!,
+                height: 40,
+                width: 40,
+                fit: BoxFit.contain,
+              ),
+              title: Text(
+                levels[index]["text"]!,
+                style: const TextStyle(fontSize: 15),
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 4),
+              dense: true,
+            );
+          }),
+        ],
       ),
       actions: [
         TextButton(
