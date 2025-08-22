@@ -70,24 +70,50 @@ class _WavePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color.withOpacity(0.7);
+    final fillWidth = size.width * progress;
+    final baseHeight = size.height - (size.height * progress);
 
-    final waveHeight = 6.0;
-    final baseHeight = size.height * (1 - progress);
+    final waveHeight = 8.0;
+    final waveLength = size.width / 1.5;
 
-    final path = Path()..moveTo(0, size.height);
+    // ✅ 1. 회색 테두리 먼저 그림
+    final borderPaint = Paint()
+      ..color = Colors.grey
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    final borderRect = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      const Radius.circular(12),
+    );
+    canvas.drawRRect(borderRect, borderPaint);
 
-    for (double x = 0; x <= size.width; x++) {
-      final y = waveHeight *
-          math.sin((2 * math.pi / size.width) * x + wavePhase) +
-          baseHeight;
-      path.lineTo(x, y);
+    // ✅ 2. 파도 물결 그림
+    final paint1 = Paint()..color = color.withOpacity(0.6);
+    final path1 = Path()..moveTo(0, size.height);
+
+    for (double x = 0; x <= fillWidth; x++) {
+      final y = baseHeight +
+          waveHeight * math.sin((2 * math.pi / waveLength) * x + wavePhase);
+      path1.lineTo(x, y);
     }
+    path1.lineTo(fillWidth, size.height);
+    path1.close();
 
-    path.lineTo(size.width, size.height);
-    path.close();
+    final paint2 = Paint()..color = color.withOpacity(0.3);
+    final path2 = Path()..moveTo(0, size.height);
 
-    canvas.drawPath(path, paint);
+    for (double x = 0; x <= fillWidth; x++) {
+      final y = baseHeight +
+          waveHeight *
+              0.6 *
+              math.sin((2 * math.pi / waveLength) * x + wavePhase + math.pi / 2);
+      path2.lineTo(x, y);
+    }
+    path2.lineTo(fillWidth, size.height);
+    path2.close();
+
+    canvas.drawPath(path1, paint1);
+    canvas.drawPath(path2, paint2);
   }
 
   @override
