@@ -111,7 +111,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
     final others = _family.where((m) => m.userId != me.userId).toList(); // 본인 제외한 나머지 가족
 
     return Scaffold(
-      appBar: AppBar(title: const Text('가족 / 내정보')),
+      //appBar: AppBar(title: const Text('가족 / 내정보')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -176,10 +176,10 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                           icon: const Icon(Icons.fitness_center), // 피트니스 아이콘
                           label: const Text('내 기록'),
                           style: TextButton.styleFrom(
-                            foregroundColor: theme.colorScheme.primary, // 테마의 기본 색상 사용
+                            foregroundColor: Colors.green, // 테마의 기본 색상 사용
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20), // 더 둥근 모서리
-                              side: BorderSide(color: theme.colorScheme.primary.withOpacity(0.5)), // 연한 테두리
+                              side: BorderSide(color: Colors.green), // 연한 테두리
                             ),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           ),
@@ -292,10 +292,10 @@ class _FamilyTile extends StatelessWidget {
                       icon: const Icon(Icons.remove_red_eye_outlined, size: 18), // 눈 아이콘
                       label: const Text('기록 보기'),
                       style: TextButton.styleFrom(
-                        foregroundColor: theme.colorScheme.secondary, // 보조 색상 사용
+                        foregroundColor: Colors.green, // 보조 색상 사용
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(color: theme.colorScheme.secondary.withOpacity(0.5)),
+                          side: BorderSide(color: Colors.green),
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         textStyle: const TextStyle(fontSize: 12),
