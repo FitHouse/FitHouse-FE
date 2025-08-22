@@ -160,7 +160,7 @@ class CommunityRepo {
         'page': '$page',
         'size': '$size',
         if (memberId != null) 'memberId': '$memberId',
-        'sort' : 'date,desc',
+        'sort': 'date,desc',
       },
     );
 
@@ -317,158 +317,147 @@ class _CommunityTabState extends State<CommunityTab>
     final s = _summary!;
     final feed = _feed;
 
-    return Stack(
-      children: [
-        RefreshIndicator(
-          onRefresh: _load,
-          child: CustomScrollView(
-            controller: _scroll,
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: _FamilyHeader(
-                    familyName: s.familyName,
-                    subtitle: '가족 ${s.memberCount}명 · 이번 달 사진 ${s.monthlyPosts}장',
-                  ),
-                ),
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: CustomScrollView(
+        controller: _scroll,
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: _FamilyHeader(
+                familyName: s.familyName,
+                subtitle:
+                '가족 ${s.memberCount}명 · 이번 달 사진 ${s.monthlyPosts}장',
+                onCompose: _goCreate,
               ),
-              SliverToBoxAdapter(
-                child: _MemberCarousel(
-                  members: s.members,
-                  selectedMemberId: _selectedMemberId,
-                  onSelect: _onSelectMember,
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
-              SliverPadding(
-                padding: const EdgeInsets.all(12),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                    childAspectRatio: 1,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                      final item = feed[index];
-                      final member = s.members.firstWhere(
-                            (m) => m.id == item.authorId,
-                        orElse: () => FamilyMember(
-                          id: item.authorId,
-                          name: '알수없음',
-                        ),
-                      );
-                      return InkWell(
-                        borderRadius: BorderRadius.circular(8),
-                        onTap: () async {
-                          final args = CommunityDetailArgs(
-                            postId: item.id.toString(),
-                            authorName: member.name,
-                            authorAvatarUrl: member.avatarUrl,
-                            createdAt: item.date,
-                            imageUrls: [item.imageUrl],
-                            content: item.comment ?? '',
-                            isMine: _myMemberId != null &&
-                                item.authorId == _myMemberId,
-                          );
-
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => CommunityDetailScreen(args: args),
-                            ),
-                          );
-
-                          if (!mounted) return;
-                          if (result is Map) {
-                            //삭제 반영
-                            if (result['deleted'] == true) {
-                              setState(() {
-                                _feed.removeWhere((it) => it.id.toString() == result['postId']);
-                              });
-                            }
-                            //수정 반영
-                            else if (result['updated'] == true) {
-                              final idx = _feed.indexWhere((it) => it.id.toString() == (result['postId'] as String));
-                              if (idx != -1) {
-                                final old = _feed[idx];
-                                final newImageUrl = (result['newImageUrl'] as String?)?.trim();
-                                final newContent  = (result['content'] as String?)?.trim();
-
-                                final updated = FeedItem(
-                                  id: old.id,
-                                  authorId: old.authorId,
-                                  date: old.date,
-                                  imageUrl: (newImageUrl != null && newImageUrl.isNotEmpty) ? newImageUrl : old.imageUrl,
-                                  thumbnailUrl: (newImageUrl != null && newImageUrl.isNotEmpty) ? newImageUrl : old.thumbnailUrl,
-                                  comment: (newContent != null && newContent.isNotEmpty) ? newContent : old.comment,
-                                );
-
-                                setState(() {
-                                  _feed[idx] = updated;
-                                });
-                              }
-                            }
-                          }
-                        },
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Image.network(
-                                item.thumbnailUrl,
-                                fit: BoxFit.cover,
-                              ),
-                              Positioned(
-                                right: 6,
-                                bottom: 6,
-                                child: _MiniMemberBadge(member: member),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                    childCount: feed.length,
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: _loadingMore
-                    ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-                    : const SizedBox.shrink(),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-            ],
-          ),
-        ),
-
-        // 글쓰기 플로팅 버튼
-        Positioned(
-          right: 16,
-          bottom: 24,
-          child: SafeArea(
-            minimum: const EdgeInsets.only(bottom: 16),
-            child: FloatingActionButton.small(
-              heroTag: 'fab-compose',
-              onPressed: _goCreate,
-              elevation: 0,
-              focusElevation: 1,
-              hoverElevation: 1,
-              highlightElevation: 0,
-              backgroundColor: naviGreen,
-              foregroundColor: Colors.white,
-              child: const Icon(Icons.edit, size: 20),
             ),
           ),
-        ),
-      ],
+          SliverToBoxAdapter(
+            child: _MemberCarousel(
+              members: s.members,
+              selectedMemberId: _selectedMemberId,
+              onSelect: _onSelectMember,
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+          SliverPadding(
+            padding: const EdgeInsets.all(12),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 1,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                  final item = feed[index];
+                  final member = s.members.firstWhere(
+                        (m) => m.id == item.authorId,
+                    orElse: () => FamilyMember(
+                      id: item.authorId,
+                      name: '알수없음',
+                    ),
+                  );
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () async {
+                      final args = CommunityDetailArgs(
+                        postId: item.id.toString(),
+                        authorName: member.name,
+                        authorAvatarUrl: member.avatarUrl,
+                        createdAt: item.date,
+                        imageUrls: [item.imageUrl],
+                        content: item.comment ?? '',
+                        isMine: _myMemberId != null &&
+                            item.authorId == _myMemberId,
+                      );
+
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CommunityDetailScreen(args: args),
+                        ),
+                      );
+
+                      if (!mounted) return;
+                      if (result is Map) {
+                        if (result['deleted'] == true) {
+                          setState(() {
+                            _feed.removeWhere(
+                                    (it) => it.id.toString() == result['postId']);
+                          });
+                        }
+                        else if (result['updated'] == true) {
+                          final idx = _feed.indexWhere((it) =>
+                          it.id.toString() == (result['postId'] as String));
+                          if (idx != -1) {
+                            final old = _feed[idx];
+                            final newImageUrl =
+                            (result['newImageUrl'] as String?)?.trim();
+                            final newContent =
+                            (result['content'] as String?)?.trim();
+
+                            final updated = FeedItem(
+                              id: old.id,
+                              authorId: old.authorId,
+                              date: old.date,
+                              imageUrl:
+                              (newImageUrl != null && newImageUrl.isNotEmpty)
+                                  ? newImageUrl
+                                  : old.imageUrl,
+                              thumbnailUrl: (newImageUrl != null &&
+                                  newImageUrl.isNotEmpty)
+                                  ? newImageUrl
+                                  : old.thumbnailUrl,
+                              comment:
+                              (newContent != null && newContent.isNotEmpty)
+                                  ? newContent
+                                  : old.comment,
+                            );
+
+                            setState(() {
+                              _feed[idx] = updated;
+                            });
+                          }
+                        }
+                      }
+                    },
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.network(
+                            item.thumbnailUrl,
+                            fit: BoxFit.cover,
+                          ),
+                          Positioned(
+                            right: 6,
+                            bottom: 6,
+                            child: _MiniMemberBadge(member: member),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                childCount: feed.length,
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: _loadingMore
+                ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(child: CircularProgressIndicator()),
+            )
+                : const SizedBox.shrink(),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        ],
+      ),
     );
   }
 }
@@ -477,10 +466,12 @@ class _FamilyHeader extends StatelessWidget {
   const _FamilyHeader({
     required this.familyName,
     required this.subtitle,
+    required this.onCompose,
   });
 
   final String familyName;
   final String subtitle;
+  final VoidCallback onCompose;
 
   @override
   Widget build(BuildContext context) {
@@ -501,8 +492,8 @@ class _FamilyHeader extends StatelessWidget {
               children: [
                 Text(
                   familyName,
-                  style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -518,6 +509,15 @@ class _FamilyHeader extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          // NOTE: IconButton을 동그란 FloatingActionButton.small로 교체했습니다.
+          FloatingActionButton.small(
+            onPressed: onCompose,
+            heroTag: 'headerComposeButton', // heroTag는 화면 내에서 고유해야 합니다.
+            backgroundColor: Colors.green, // 초록색 배경
+            foregroundColor: Colors.white, // 아이콘은 흰색
+            elevation: 1,
+            child: const Icon(Icons.edit, size: 22),
           ),
         ],
       ),
@@ -585,9 +585,9 @@ class _MemberChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? Colors.blue.shade50 : Colors.grey.shade100;
-    final border = selected ? Colors.blue : Colors.grey.shade300;
-    final textColor = selected ? Colors.blue.shade700 : Colors.black87;
+    final bg = selected ? Colors.green.shade50 : Colors.white; // 배경을 완전한 흰색으로
+    final border = selected ? Colors.green : Colors.grey.shade200; // 테두리는 아주 연한 회색으로
+    final textColor = selected ? Colors.green.shade700 : Colors.black87;
 
     Widget avatar = CircleAvatar(
       radius: 18,
