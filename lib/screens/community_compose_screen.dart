@@ -179,17 +179,18 @@ class _CommunityComposeScreenState extends State<CommunityComposeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        foregroundColor: naviGreen,
+        // 앱바 투명하게
+        // backgroundColor: Colors.transparent,
+        // surfaceTintColor: Colors.transparent,
+        // elevation: 0,
+        // scrolledUnderElevation: 0,
+        foregroundColor: Colors.black,
         title: Text(isEdit ? '게시글 수정' : '게시글 작성'),
         leading: const BackButton(),
         actions: [
           TextButton(
             onPressed: _submitting ? null : _submit,
-            style: TextButton.styleFrom(foregroundColor: naviGreen),
+            style: TextButton.styleFrom(foregroundColor: Colors.black),
             child: _submitting
                 ? SizedBox(
               width: 18,
