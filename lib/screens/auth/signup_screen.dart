@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io' as io;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:fithouse/constants/colors.dart';
+
 
 // Role / Gender → 한글 라벨
 extension RoleKo on Role {
@@ -277,9 +279,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
           height: 10,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: active
-                ? Theme.of(context).colorScheme.primary
-                : Colors.grey.shade300,
+            color: active ? buttonGreen : buttonGreen.withOpacity(0.2),
           ),
         );
       }),
@@ -350,6 +350,9 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                   '위 약관 및 개인정보 처리방침에 동의합니다.',
                   style: TextStyle(fontSize: 14),
                 ),
+                activeColor: buttonGreen,
+                checkColor: Colors.white,
+                side: BorderSide(color: buttonGreen),
               ),
               const SizedBox(height: 8),
             ],
@@ -658,11 +661,19 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                     ),
                   ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
                   child: SizedBox(
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: buttonGreen,
+                        disabledBackgroundColor: buttonGreen.withOpacity(0.35),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
                       onPressed: (!_loading && (_step == 0 ? _termsAgreed : true)) ? _next : null,
                       child: _loading
                           ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
