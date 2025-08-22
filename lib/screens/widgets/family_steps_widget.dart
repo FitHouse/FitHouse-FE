@@ -30,9 +30,9 @@ class FamilyStepsWidget extends StatelessWidget {
   int _valueByRange(FamilySteps m) {
     switch (range) {
       case 'week':
-        return m.week;
+        return m.weekly;
       case 'month':
-        return m.month;
+        return m.monthly;
       default:
         return m.today;
     }
