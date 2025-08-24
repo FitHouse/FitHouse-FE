@@ -70,6 +70,7 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
   final _picker = ImagePicker();
 
   bool _saving = false;
+  bool _leaving = false;
   UserProfile? _latestFromServer;
 
   String? avatarUrl;
@@ -413,7 +414,7 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
                       foregroundColor: Colors.red,
                       side: const BorderSide(color: Colors.red),
                     ),
-                    onPressed: () async {
+                    onPressed: _leaving ? null : () async {
                       final ok = await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
@@ -431,14 +432,41 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
                           ],
                         ),
                       );
-                      if (ok == true && context.mounted) {
-                        // TODO: 서버에 가족 탈퇴 API 호출
+
+                      if (ok != true || !mounted) return;
+
+                      setState(() => _leaving = true);
+                      try {
+                        final updated = await _api.leaveFamily();
+
+                        if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('가족에서 탈퇴했습니다.')),
                         );
+
+                        Navigator.pop<UserProfile>(context, updated);
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('탈퇴 실패: $e')),
+                        );
+                      } finally {
+                        if (mounted) setState(() => _leaving = false);
                       }
                     },
-                    child: const Text('소속 가족 탈퇴'),
+                    child: _leaving
+                        ? const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          height: 16, width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 8),
+                        Text('탈퇴 중...'),
+                      ],
+                    )
+                        : const Text('소속 가족 탈퇴'),
                   ),
                 ],
               ),

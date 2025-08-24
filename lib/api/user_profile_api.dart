@@ -96,4 +96,31 @@ class UserProfileApi {
       throw Exception('Failed to delete image: ${res.statusCode}');
     }
   }
+
+  Future<UserProfile> leaveFamily() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('Not authenticated');
+    }
+    final idToken = await user.getIdToken();
+
+    final res = await _client.delete(
+      Uri.parse('$_baseUrl/api/users/me/family'),
+      headers: {
+        'Authorization': 'Bearer $idToken',
+        'Accept': 'application/json',
+      },
+    );
+
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      return UserProfile.fromJson(data);
+    }
+
+    if (res.statusCode == 204) {
+      return fetchMe();
+    }
+
+    throw Exception('Failed to leave family: ${res.statusCode} - ${res.body}');
+  }
 }
