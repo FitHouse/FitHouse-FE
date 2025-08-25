@@ -484,12 +484,12 @@ class _RecordScreenState extends State<RecordScreen> {
               children: [
                 _metricChip('키',
                     _heightCm != null ? '${_heightCm!.toStringAsFixed(0)}cm' : '-'),
-                const SizedBox(width: 8),
+                const SizedBox(width: 20),
                 _metricChip('몸무게',
                     _weightKg != null ? '${_weightKg!.toStringAsFixed(0)}kg' : '-'),
-                const SizedBox(width: 8),
+                const SizedBox(width: 20),
                 _metricChip('나이', _age != null ? '$_age세' : '-'),
-                const SizedBox(width: 8),
+                const SizedBox(width: 20),
                 _metricChip('BMI',
                     (_heightCm != null && _weightKg != null) ? _bmi.toStringAsFixed(1) : '-'),
               ],
@@ -758,6 +758,7 @@ class _EditSheetState extends State<_EditSheet> {
 
 Widget _metricChip(String label, String value) {
   return Chip(
+    backgroundColor: Colors.green[100],
     label: Column(
       mainAxisSize: MainAxisSize.min,
       children: [

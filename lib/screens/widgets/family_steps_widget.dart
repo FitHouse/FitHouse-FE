@@ -72,7 +72,7 @@ class FamilyStepsWidget extends StatelessWidget {
 
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-          color: isMe ? Colors.green.withOpacity(0.1) : null,
+          color: isMe ? const Color(0xfff4fced) : null,
           child: ListTile(
             leading: CircleAvatar(
               radius: 20,
@@ -108,7 +108,7 @@ class FamilyStepsWidget extends StatelessWidget {
                     value: progress,
                     color: baseColor,
                     backgroundColor: Colors.grey[200],
-                    minHeight: 12, // ✅ 통통하게
+                    minHeight: 12, // 통통하게
                   ),
                 ),
               ],

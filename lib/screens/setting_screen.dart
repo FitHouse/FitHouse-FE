@@ -240,11 +240,13 @@ class _SettingScreenState extends State<SettingScreen> {
                     title: const Text('운동 알림'),
                     value: _workoutNoti,
                     onChanged: (v) => setState(() => _workoutNoti = v),
+                    activeColor: Colors.green,
                   ),
                   SwitchListTile(
                     title: const Text('공지 알림'),
                     value: _noticeNoti,
                     onChanged: (v) => setState(() => _noticeNoti = v),
+                    activeColor: Colors.green,
                   ),
                   ListTile(
                     title: const Text('계정 연동'),

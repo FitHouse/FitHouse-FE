@@ -235,6 +235,7 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
         actions: [
           TextButton(
             onPressed: _saving ? null : _saveAndPop,
+            style: TextButton.styleFrom(foregroundColor: Colors.green),
             child: const Text('저장'),
           ),
         ],
@@ -539,7 +540,9 @@ class _InfoRow extends StatelessWidget {
       ),
     ),
     trailing: showTrailingButton
-        ? TextButton(onPressed: onEdit, child: const Text('변경'))
+        ? TextButton(onPressed: onEdit, style: TextButton.styleFrom(
+      foregroundColor: Colors.green, // 예: 초록색
+    ),child: const Text('변경'))
         : null,
   );
 }
