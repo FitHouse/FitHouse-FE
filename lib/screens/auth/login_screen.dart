@@ -140,6 +140,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         cursorColor: buttonGreen, // <-- 커서도 초록
                         decoration: InputDecoration(
                           labelText: '이메일 주소',
+                          labelStyle: TextStyle(color: Color(0xFF4B4B4B)),
+                          floatingLabelStyle: TextStyle(color: buttonGreen),
                           filled: true,
                           fillColor: Colors.grey.shade50,
                           border: _roundedBorder(grey),
@@ -166,6 +168,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         cursorColor: buttonGreen,
                         decoration: InputDecoration(
                           labelText: '비밀번호',
+                          labelStyle: TextStyle(color: Color(0xFF4B4B4B)),
+                          floatingLabelStyle: TextStyle(color: buttonGreen),
                           filled: true,
                           fillColor: Colors.grey.shade50,
                           border: _roundedBorder(grey),
@@ -178,6 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           suffixIcon: IconButton(
                             icon: Icon(
                               _showPw ? Icons.visibility_off : Icons.visibility,
+                              color: buttonGreen,
                             ),
                             onPressed: () =>
                                 setState(() => _showPw = !_showPw),
