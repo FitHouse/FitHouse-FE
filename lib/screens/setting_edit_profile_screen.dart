@@ -283,13 +283,16 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
                 TextField(
                   controller: _nick,
                   maxLength: 10,
-                  decoration: const InputDecoration(
+                  cursorColor: Colors.green,
+                  decoration: InputDecoration(
                     hintText: '사용할 수 있는 닉네임입니다',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.green, width: 2),
+                    ),
                     counterText: '',
                     isDense: true,
-                    contentPadding:
-                    EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),
                   style: const TextStyle(fontSize: 16),
                 ),
@@ -606,6 +609,17 @@ class _TextEditSheetState extends State<TextEditSheet> {
     super.dispose();
   }
 
+  final ButtonStyle greenButtonStyle = ElevatedButton.styleFrom(
+    backgroundColor: Colors.green,
+    foregroundColor: Colors.white,
+    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+      side: BorderSide(color: Colors.green, width: 2),  // 테두리 초록색, 두께 2
+    ),
+  );
+
+
   @override
   Widget build(BuildContext context) {
     return FractionallySizedBox(
@@ -628,6 +642,7 @@ class _TextEditSheetState extends State<TextEditSheet> {
             Align(
               alignment: Alignment.centerRight,
               child: ElevatedButton(
+                style: greenButtonStyle,  // 여기에 스타일 지정
                 onPressed: () => Navigator.pop(context, _c.text.trim()),
                 child: const Text('저장'),
               ),
@@ -685,6 +700,21 @@ class _HeightWeightSheetState extends State<HeightWeightSheet> {
     Navigator.pop(context, _HWResult(h, w));
   }
 
+  final ButtonStyle greenButtonStyle = ElevatedButton.styleFrom(
+    backgroundColor: Colors.green,
+    foregroundColor: Colors.white,
+    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+      side: BorderSide(color: Colors.green, width: 2),
+    ),
+  );
+
+  final OutlineInputBorder greenBorder = OutlineInputBorder(
+    borderSide: BorderSide(color: Colors.green, width: 2),
+    borderRadius: BorderRadius.circular(4),
+  );
+
   @override
   Widget build(BuildContext context) {
     return FractionallySizedBox(
@@ -701,31 +731,36 @@ class _HeightWeightSheetState extends State<HeightWeightSheet> {
                 Expanded(
                   child: TextField(
                     controller: _h,
-                    keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
                       labelText: '키 (cm)',
-                      border: OutlineInputBorder(),
+                      labelStyle: TextStyle(color: Colors.grey),               // 기본 라벨 색
+                      floatingLabelStyle: TextStyle(color: Colors.green),       // 포커스 시 라벨 색
+                      border: greenBorder,
+                      focusedBorder: greenBorder,
                       isDense: true,
-                      contentPadding:
-                      EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: TextField(
+                  child:TextField(
                     controller: _w,
-                    keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
                       labelText: '몸무게 (kg)',
+                      labelStyle: TextStyle(color: Colors.grey),          // 기본 라벨 색
+                      floatingLabelStyle: TextStyle(color: Colors.green),  // 포커스 시 라벨 색
                       border: OutlineInputBorder(),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.green, width: 2),
+                      ),
                       isDense: true,
-                      contentPadding:
-                      EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
                   ),
+
                 ),
               ],
             ),
@@ -733,6 +768,7 @@ class _HeightWeightSheetState extends State<HeightWeightSheet> {
             Align(
               alignment: Alignment.centerRight,
               child: ElevatedButton(
+                style: greenButtonStyle,
                 onPressed: _save,
                 child: const Text('저장'),
               ),

@@ -8,6 +8,8 @@ import 'package:fithouse/api/personal_workout_api.dart';
 import 'package:fithouse/models/paged.dart';
 import 'package:fithouse/models/personal_workout.dart';
 
+import '../constants/colors.dart';
+
 String moodEmoji(int? level) {
   switch (level) {
     case 1:
@@ -702,19 +704,39 @@ class _EditSheetState extends State<_EditSheet> {
                 children: [
                   Text('날짜: ${_dateStr(_date)}'),
                   const SizedBox(width: 8),
-                  TextButton(onPressed: _pickDate, child: const Text('변경')),
+                  TextButton(
+                    onPressed: _pickDate,
+                    style: TextButton.styleFrom(
+                      foregroundColor: buttonGreen, // 글씨 및 아이콘 색
+                    ),
+                    child: const Text('변경'),
+                  ),
                 ],
               ),
               TextFormField(
                 controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: '운동명'),
+                decoration: InputDecoration(
+                  labelText: '운동명',
+                  labelStyle: TextStyle(color: Colors.grey), // 기본 라벨 색
+                  floatingLabelStyle: TextStyle(color: Colors.green), // 포커스 시 라벨 색
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.green), // 포커스 시 밑줄 초록색
+                  ),
+                ),
                 validator: (v) =>
                 (v == null || v.trim().isEmpty) ? '운동명을 입력하세요.' : null,
                 maxLength: 100,
               ),
+
               TextFormField(
                 controller: _durationCtrl,
-                decoration: const InputDecoration(labelText: '시간(분)'),
+                decoration: InputDecoration(
+                  labelText: '시간(분)',
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.green),
+                  ),
+                  floatingLabelStyle: TextStyle(color: Colors.green),
+                ),
                 keyboardType: TextInputType.number,
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return '시간을 입력하세요.';
@@ -723,45 +745,58 @@ class _EditSheetState extends State<_EditSheet> {
                   return null;
                 },
               ),
+
               const SizedBox(height: 12),
+
               Row(
                 children: [
                   const Text('컨디션'),
                   const SizedBox(width: 12),
                   DropdownButton<int>(
                     value: _satisfaction,
-                    onChanged: (v) =>
-                        setState(() => _satisfaction = v ?? 3),
+                    onChanged: (v) => setState(() => _satisfaction = v ?? 3),
                     items: const [
                       DropdownMenuItem(value: 1, child: Text('매우 힘듦')),
                       DropdownMenuItem(value: 2, child: Text('힘듦')),
                       DropdownMenuItem(value: 3, child: Text('보통')),
                       DropdownMenuItem(value: 4, child: Text('만족')),
                     ],
+
                   ),
                   const SizedBox(width: 12),
                   moodBadge(_satisfaction),
                 ],
               ),
+
               TextFormField(
                 controller: _memoCtrl,
-                decoration: const InputDecoration(labelText: '메모(선택)'),
+                decoration: InputDecoration(
+                  labelText: '메모(선택)',
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.green),
+                  ),
+                  floatingLabelStyle: TextStyle(color: Colors.green),
+                ),
                 maxLength: 10000,
                 maxLines: 3,
               ),
+
               const SizedBox(height: 16),
+
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.green,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
+                    side: BorderSide(color: Colors.green), // 테두리 초록색
                   ),
                 ),
                 onPressed: _submit,
                 child: const Text('저장'),
               ),
+
               const SizedBox(height: 8),
             ],
           ),
