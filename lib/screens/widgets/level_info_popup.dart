@@ -26,7 +26,7 @@ class LevelInfoPopup extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Colors.grey,
+              color: Colors.green,
             ),
           ),
           const SizedBox(height: 12),
@@ -51,8 +51,12 @@ class LevelInfoPopup extends StatelessWidget {
       ),
       actions: [
         TextButton(
-          child: const Text("닫기"),
           onPressed: () => Navigator.pop(context),
+          // 👇 style 속성을 추가하고 TextButton.styleFrom을 사용합니다.
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.green, // 텍스트와 아이콘의 색상
+          ),
+          child: const Text("닫기"),
         ),
       ],
     );
