@@ -23,6 +23,21 @@ String moodEmoji(int? level) {
   }
 }
 
+String moodLabel(int? level) {
+  switch (level) {
+    case 1:
+      return '매우 힘듦'; // 매우 힘듦
+    case 2:
+      return '힘듦'; // 힘듦
+    case 3:
+      return '보통'; // 보통
+    case 4:
+      return '만족'; // 만족
+    default:
+      return '알 수 없음';
+  }
+}
+
 Color moodColor(int? level) {
   switch (level) {
     case 1:
@@ -576,7 +591,7 @@ class _RecordScreenState extends State<RecordScreen> {
               leading: moodBadge(item.satisfactionLevel),
               title: Text('${_dateStr(item.date)} · ${item.workoutName}'),
               subtitle: Text(
-                  '시간 ${item.duration}분 • 컨디션 ${item.satisfactionLevel ?? 0}$memoTail'),
+                  '시간 ${item.duration}분 • ${moodLabel(item.satisfactionLevel)}$memoTail'),
               onTap: widget.userId == null ? () => _onEdit(item) : null,
               trailing: widget.userId == null
                   ? IconButton(
