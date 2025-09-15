@@ -1,13 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 
-const String _baseAndroid = 'http://10.0.2.2:8080';
-const String _baseOther = 'http://localhost:8080';
-String get _baseUrl => Platform.isAndroid ? _baseAndroid : _baseOther;
+import 'package:fithouse/api/http_client.dart'; // baseUrl, authHeaders, httpClient
 
 class GroupScreen extends StatefulWidget {
   const GroupScreen({super.key});
@@ -58,7 +55,7 @@ class _GroupScreenState extends State<GroupScreen> {
     setState(() => _loading = true);
     try {
       final headers = await _authHeader();
-      final url = Uri.parse('$_baseUrl/family/mine');
+      final url = Uri.parse('$baseUrl/family/mine');
       final res = await http.get(url, headers: headers);
       if (res.statusCode == 200) {
         final json = jsonDecode(res.body) as Map<String, dynamic>;
@@ -86,7 +83,7 @@ class _GroupScreenState extends State<GroupScreen> {
     setState(() => _loading = true);
     try {
       final headers = await _authHeader();
-      final url = Uri.parse('$_baseUrl/family');
+      final url = Uri.parse('$baseUrl/family');
       final body = jsonEncode({
         'familyName': name,
         'familyComment': _familyCommentCtrl.text.trim().isEmpty
@@ -127,7 +124,7 @@ class _GroupScreenState extends State<GroupScreen> {
     setState(() => _loading = true);
     try {
       final headers = await _authHeader();
-      final url = Uri.parse('$_baseUrl/family/join');
+      final url = Uri.parse('$baseUrl/family/join');
       final body = jsonEncode({'code': code});
       final res = await http.post(url, headers: headers, body: body);
       if (res.statusCode == 200) {
@@ -158,8 +155,6 @@ class _GroupScreenState extends State<GroupScreen> {
       appBar: AppBar(
         title: const Text('가족'),
         centerTitle: true,
-        //backgroundColor: Colors.green,
-        //foregroundColor: Colors.white,
       ),
       body: Stack(
         children: [
