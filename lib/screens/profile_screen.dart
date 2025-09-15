@@ -98,6 +98,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
+    _loadFamily(); // 화면이 빌드 될때마다 가족 데이터 새로 고침
     final theme = Theme.of(context);
 
     if (_loading) {

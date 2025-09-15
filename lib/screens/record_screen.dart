@@ -13,13 +13,13 @@ import '../constants/colors.dart';
 String moodEmoji(int? level) {
   switch (level) {
     case 1:
-      return '😵'; // 매우 힘듦
+      return '😵';
     case 2:
-      return '😣'; // 힘듦
+      return '😣';
     case 3:
-      return '🙂'; // 보통
+      return '🙂';
     case 4:
-      return '😄'; // 만족
+      return '😄';
     default:
       return '❓';
   }
@@ -28,13 +28,13 @@ String moodEmoji(int? level) {
 String moodLabel(int? level) {
   switch (level) {
     case 1:
-      return '매우 힘듦'; // 매우 힘듦
+      return '매우 힘듦';
     case 2:
-      return '힘듦'; // 힘듦
+      return '힘듦';
     case 3:
-      return '보통'; // 보통
+      return '보통';
     case 4:
-      return '만족'; // 만족
+      return '만족';
     default:
       return '알 수 없음';
   }
@@ -43,13 +43,13 @@ String moodLabel(int? level) {
 Color moodColor(int? level) {
   switch (level) {
     case 1:
-      return Colors.redAccent;   // 매우 힘듦
+      return Colors.redAccent;
     case 2:
-      return Colors.orange;      // 힘듦
+      return Colors.orange;
     case 3:
-      return Colors.amber;       // 보통
+      return Colors.amber;
     case 4:
-      return Colors.green;       // 만족
+      return Colors.green;
     default:
       return Colors.grey;
   }
@@ -178,8 +178,7 @@ class _RecordScreenState extends State<RecordScreen> {
       final uri = Uri.parse(
           widget.userId == null
               ? '$baseUrl/api/users/me'
-              : '$baseUrl/family/member/${widget.userId}'
-      );
+              : '$baseUrl/family/member/${widget.userId}');
       final res =
       await httpClient.get(uri, headers: await authHeaders(json: false));
 
@@ -226,7 +225,8 @@ class _RecordScreenState extends State<RecordScreen> {
       if (widget.userId == null) {
         resp = await api.list(page: 0, size: _size);
       } else {
-        final uri = Uri.parse('$baseUrl/family/member/${widget.userId}?page=0&size=$_size');
+        final uri = Uri.parse(
+            '$baseUrl/family/member/${widget.userId}?page=0&size=$_size');
         final res = await httpClient.get(uri, headers: await authHeaders());
         final data = jsonDecode(res.body);
 
@@ -261,14 +261,17 @@ class _RecordScreenState extends State<RecordScreen> {
       if (widget.userId == null) {
         resp = await api.list(page: next, size: _size);
       } else {
-        final uri = Uri.parse('$baseUrl/family/member/${widget.userId}?page=$next&size=$_size');
+        final uri = Uri.parse(
+            '$baseUrl/family/member/${widget.userId}?page=$next&size=$_size');
         final res = await httpClient.get(uri, headers: await authHeaders());
         final data = jsonDecode(res.body);
 
         if (data != null && data['workouts'] is Map<String, dynamic>) {
-          resp = Paged.fromJson(data['workouts'], PersonalWorkout.fromJson);
+          resp =
+              Paged.fromJson(data['workouts'], PersonalWorkout.fromJson);
         } else {
-          resp = Paged(content: [], page: next, totalPages: _page + 1);
+          resp =
+              Paged(content: [], page: next, totalPages: _page + 1);
         }
       }
       setState(() {
@@ -343,7 +346,7 @@ class _RecordScreenState extends State<RecordScreen> {
         date: result.date,
         workoutName: result.workoutName,
         duration: result.duration,
-        satisfactionLevel: item.satisfactionLevel,
+        satisfactionLevel: result.satisfactionLevel,
         memo: result.memo,
       );
       setState(() {
@@ -478,43 +481,35 @@ class _RecordScreenState extends State<RecordScreen> {
                     ],
                   ),
                 ),
-                if(widget.userId==null)
+                if (widget.userId == null)
                   TextButton.icon(
                     onPressed: () =>
                         setState(() => _detailsOpen = !_detailsOpen),
                     icon: Icon(
-                      _detailsOpen
-                          ? Icons.expand_less
-                          : Icons.expand_more,
+                      _detailsOpen ? Icons.expand_less : Icons.expand_more,
                       size: 18,
-                      color: Colors.green, // 초록색
+                      color: Colors.green,
                     ),
                     label: const Text(
                       '상세',
-                      style: TextStyle(color: Colors.green), // 초록색
+                      style: TextStyle(color: Colors.green),
                     ),
                   ),
               ],
             ),
             const SizedBox(height: 12),
+            // 수정된 부분: Row + Expanded
             Row(
               children: [
-                _metricChip('키',
-                    _heightCm != null ? '${_heightCm!.toStringAsFixed(0)}cm' : '-'),
-                const SizedBox(width: 20),
-                _metricChip('몸무게',
-                    _weightKg != null ? '${_weightKg!.toStringAsFixed(0)}kg' : '-'),
-                const SizedBox(width: 20),
-                _metricChip('나이', _age != null ? '$_age세' : '-'),
-                const SizedBox(width: 20),
-                _metricChip('BMI',
-                    (_heightCm != null && _weightKg != null) ? _bmi.toStringAsFixed(1) : '-'),
+                Expanded(child: _metricChip('키', _heightCm != null ? '${_heightCm!.toStringAsFixed(0)}cm' : '-')),
+                Expanded(child: _metricChip('몸무게', _weightKg != null ? '${_weightKg!.toStringAsFixed(0)}kg' : '-')),
+                Expanded(child: _metricChip('나이', _age != null ? '$_age세' : '-')),
+                Expanded(child: _metricChip('BMI', (_heightCm != null && _weightKg != null) ? _bmi.toStringAsFixed(1) : '-')),
               ],
             ),
             AnimatedCrossFade(
-              crossFadeState: _detailsOpen
-                  ? CrossFadeState.showFirst
-                  : CrossFadeState.showSecond,
+              crossFadeState:
+              _detailsOpen ? CrossFadeState.showFirst : CrossFadeState.showSecond,
               duration: const Duration(milliseconds: 200),
               firstChild: Padding(
                 padding: const EdgeInsets.only(top: 12),
@@ -544,14 +539,17 @@ class _RecordScreenState extends State<RecordScreen> {
   Widget _detailRow(String label, String value) {
     return Row(
       children: [
-        SizedBox(
-            width: 80,
-            child:
-            Text(label, style: Theme.of(context).textTheme.bodySmall)),
+        Flexible(
+          flex: 3,
+          child: Text(label,
+              style: Theme.of(context).textTheme.bodySmall),
+        ),
         const SizedBox(width: 8),
-        Expanded(
-            child: Text(value,
-                style: Theme.of(context).textTheme.bodyMedium)),
+        Flexible(
+          flex: 7,
+          child: Text(value,
+              style: Theme.of(context).textTheme.bodyMedium),
+        ),
       ],
     );
   }
@@ -563,7 +561,7 @@ class _RecordScreenState extends State<RecordScreen> {
       floatingActionButton: widget.userId == null
           ? FloatingActionButton(
         onPressed: _onCreate,
-        backgroundColor: Colors.green, // 초록색
+        backgroundColor: Colors.green,
         child: const Icon(Icons.add),
       )
           : null,
@@ -692,7 +690,7 @@ class _EditSheetState extends State<_EditSheet> {
         left: 16,
         right: 16,
         top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 40, // 위로 띄움
+        bottom: MediaQuery.of(context).viewInsets.bottom + 40,
       ),
       child: Form(
         key: _form,
@@ -707,7 +705,7 @@ class _EditSheetState extends State<_EditSheet> {
                   TextButton(
                     onPressed: _pickDate,
                     style: TextButton.styleFrom(
-                      foregroundColor: buttonGreen, // 글씨 및 아이콘 색
+                      foregroundColor: buttonGreen,
                     ),
                     child: const Text('변경'),
                   ),
@@ -717,17 +715,16 @@ class _EditSheetState extends State<_EditSheet> {
                 controller: _nameCtrl,
                 decoration: InputDecoration(
                   labelText: '운동명',
-                  labelStyle: TextStyle(color: Colors.grey), // 기본 라벨 색
-                  floatingLabelStyle: TextStyle(color: Colors.green), // 포커스 시 라벨 색
+                  labelStyle: TextStyle(color: Colors.grey),
+                  floatingLabelStyle: TextStyle(color: Colors.green),
                   focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.green), // 포커스 시 밑줄 초록색
+                    borderSide: BorderSide(color: Colors.green),
                   ),
                 ),
                 validator: (v) =>
                 (v == null || v.trim().isEmpty) ? '운동명을 입력하세요.' : null,
                 maxLength: 100,
               ),
-
               TextFormField(
                 controller: _durationCtrl,
                 decoration: InputDecoration(
@@ -745,9 +742,7 @@ class _EditSheetState extends State<_EditSheet> {
                   return null;
                 },
               ),
-
               const SizedBox(height: 12),
-
               Row(
                 children: [
                   const Text('컨디션'),
@@ -761,13 +756,11 @@ class _EditSheetState extends State<_EditSheet> {
                       DropdownMenuItem(value: 3, child: Text('보통')),
                       DropdownMenuItem(value: 4, child: Text('만족')),
                     ],
-
                   ),
                   const SizedBox(width: 12),
                   moodBadge(_satisfaction),
                 ],
               ),
-
               TextFormField(
                 controller: _memoCtrl,
                 decoration: InputDecoration(
@@ -780,9 +773,7 @@ class _EditSheetState extends State<_EditSheet> {
                 maxLength: 10000,
                 maxLines: 3,
               ),
-
               const SizedBox(height: 16),
-
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
@@ -790,13 +781,12 @@ class _EditSheetState extends State<_EditSheet> {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
-                    side: BorderSide(color: Colors.green), // 테두리 초록색
+                    side: BorderSide(color: Colors.green),
                   ),
                 ),
                 onPressed: _submit,
                 child: const Text('저장'),
               ),
-
               const SizedBox(height: 8),
             ],
           ),
@@ -812,12 +802,16 @@ Widget _metricChip(String label, String value) {
     label: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12)),
+        Text(label,
+            style: const TextStyle(fontSize: 12),
+            textAlign: TextAlign.center),
         const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text(value,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center),
       ],
     ),
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
   );
 }
 
