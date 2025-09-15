@@ -368,13 +368,25 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('이메일을 입력해주세요',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          const Text(
+            '이메일을 입력해주세요',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 16),
           TextFormField(
             controller: _email,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(labelText: '이메일 주소'),
+            cursorColor: buttonGreen,
+            decoration: InputDecoration(
+              labelText: '이메일 주소',
+              labelStyle: const TextStyle(color: Color(0xFF4B4B4B)), // 기본 회색
+              floatingLabelStyle: TextStyle(color: buttonGreen),      // 포커스 시 초록
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: buttonGreen),
+              ),
+            ),
             validator: _validateEmail,
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => _next(),
@@ -384,47 +396,82 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
     );
   }
 
+
   Widget _stepPassword() {
     return Form(
       key: _formPw,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('사용하실 비밀번호를 입력해주세요',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          const Text(
+            '사용하실 비밀번호를 입력해주세요',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 16),
+
+          // 비밀번호
           TextFormField(
             controller: _pw,
             obscureText: !_showPw,
+            cursorColor: buttonGreen,
             decoration: InputDecoration(
               labelText: '비밀번호 (6자 이상)',
+              labelStyle: const TextStyle(color: Color(0xFF4B4B4B)),
+              floatingLabelStyle: TextStyle(color: buttonGreen),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: buttonGreen),
+              ),
               suffixIcon: IconButton(
-                icon:
-                Icon(_showPw ? Icons.visibility_off : Icons.visibility),
+                icon: Icon(
+                  _showPw ? Icons.visibility_off : Icons.visibility,
+                  color: buttonGreen,
+                ),
                 onPressed: () => setState(() => _showPw = !_showPw),
+                tooltip: _showPw ? '비밀번호 숨기기' : '비밀번호 보기',
               ),
             ),
             validator: _validatePw,
             onFieldSubmitted: (_) => _next(),
           ),
+
           const SizedBox(height: 12),
+
+          // 비밀번호 확인
           TextFormField(
             controller: _pw2,
             obscureText: !_showPw2,
+            cursorColor: buttonGreen,
             decoration: InputDecoration(
               labelText: '비밀번호 확인',
+              labelStyle: const TextStyle(color: Color(0xFF4B4B4B)),
+              floatingLabelStyle: TextStyle(color: buttonGreen),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: buttonGreen),
+              ),
               suffixIcon: IconButton(
-                icon:
-                Icon(_showPw2 ? Icons.visibility_off : Icons.visibility),
+                icon: Icon(
+                  _showPw2 ? Icons.visibility_off : Icons.visibility,
+                  color: buttonGreen,
+                ),
                 onPressed: () => setState(() => _showPw2 = !_showPw2),
+                tooltip: _showPw2 ? '비밀번호 숨기기' : '비밀번호 보기',
               ),
             ),
             validator: _validatePw2,
             onFieldSubmitted: (_) => _next(),
           ),
+
           const SizedBox(height: 8),
-          Text('• 영문/숫자 조합 권장',
-              style: TextStyle(color: Colors.grey.shade600)),
+
+          // 안내 문구
+          Text(
+            '• 영문/숫자 조합 권장',
+            style: TextStyle(color: Colors.grey.shade600),
+          ),
         ],
       ),
     );
@@ -462,7 +509,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
+                        color: buttonGreen,
                         shape: BoxShape.circle,
                       ),
                       child:
@@ -474,16 +521,23 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
             ),
             const SizedBox(height: 24),
 
-            // 닉네임 (2~30자, 한글 허용, 카운터 (0/30))
+            // 닉네임
             TextFormField(
               controller: _name,
               keyboardType: TextInputType.name,
-              decoration: const InputDecoration(
+              cursorColor: buttonGreen,
+              decoration: InputDecoration(
                 labelText: '닉네임',
                 counterText: '',
+                labelStyle: const TextStyle(color: Color(0xFF4B4B4B)),
+                floatingLabelStyle: TextStyle(color: buttonGreen),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: buttonGreen),
+                ),
               ),
               inputFormatters: [
-                // 한글(자모/완성), 영문/숫자/._- 허용
                 FilteringTextInputFormatter.allow(
                   RegExp(r'[a-zA-Z0-9\u1100-\u11FF\u3130-\u318F\uAC00-\uD7A3._-]'),
                 ),
@@ -494,6 +548,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
               onChanged: (_) => setState(() {}),
               validator: _validateName,
             ),
+
             const SizedBox(height: 6),
             Row(
               children: [
@@ -581,31 +636,62 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                   setState(() => _birthdate = date);
                 }
               },
+              cursorColor: buttonGreen,
               decoration: InputDecoration(
                 labelText: '생일',
-                suffixIcon: const Icon(Icons.calendar_today),
+                labelStyle: const TextStyle(color: Color(0xFF4B4B4B)),
+                floatingLabelStyle: TextStyle(color: buttonGreen),
+                suffixIcon: const Icon(Icons.calendar_today, color: buttonGreen),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: buttonGreen),
+                ),
                 hintText: _birthdate != null
                     ? DateFormat('yyyy-MM-dd').format(_birthdate!)
                     : '선택해주세요',
               ),
             ),
+
             const SizedBox(height: 16),
 
             // 키/몸무게
             TextFormField(
               controller: _height,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: '키 (cm)'),
+              cursorColor: buttonGreen,
+              decoration: InputDecoration(
+                labelText: '키 (cm)',
+                labelStyle: const TextStyle(color: Color(0xFF4B4B4B)),
+                floatingLabelStyle: TextStyle(color: buttonGreen),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: buttonGreen),
+                ),
+              ),
               validator: _validateHeight,
             ),
+
             const SizedBox(height: 16),
             TextFormField(
               controller: _weight,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: '몸무게 (kg)'),
+              cursorColor: buttonGreen,
+              decoration: InputDecoration(
+                labelText: '몸무게 (kg)',
+                labelStyle: const TextStyle(color: Color(0xFF4B4B4B)),
+                floatingLabelStyle: TextStyle(color: buttonGreen),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: buttonGreen),
+                ),
+              ),
               validator: _validateWeight,
               onFieldSubmitted: (_) => _next(),
             ),
+
           ],
         ),
       ),

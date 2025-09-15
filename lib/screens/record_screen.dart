@@ -8,6 +8,8 @@ import 'package:fithouse/api/personal_workout_api.dart';
 import 'package:fithouse/models/paged.dart';
 import 'package:fithouse/models/personal_workout.dart';
 
+import '../constants/colors.dart';
+
 String moodEmoji(int? level) {
   switch (level) {
     case 1:
@@ -20,6 +22,21 @@ String moodEmoji(int? level) {
       return '😄'; // 만족
     default:
       return '❓';
+  }
+}
+
+String moodLabel(int? level) {
+  switch (level) {
+    case 1:
+      return '매우 힘듦'; // 매우 힘듦
+    case 2:
+      return '힘듦'; // 힘듦
+    case 3:
+      return '보통'; // 보통
+    case 4:
+      return '만족'; // 만족
+    default:
+      return '알 수 없음';
   }
 }
 
@@ -484,12 +501,12 @@ class _RecordScreenState extends State<RecordScreen> {
               children: [
                 _metricChip('키',
                     _heightCm != null ? '${_heightCm!.toStringAsFixed(0)}cm' : '-'),
-                const SizedBox(width: 8),
+                const SizedBox(width: 20),
                 _metricChip('몸무게',
                     _weightKg != null ? '${_weightKg!.toStringAsFixed(0)}kg' : '-'),
-                const SizedBox(width: 8),
+                const SizedBox(width: 20),
                 _metricChip('나이', _age != null ? '$_age세' : '-'),
-                const SizedBox(width: 8),
+                const SizedBox(width: 20),
                 _metricChip('BMI',
                     (_heightCm != null && _weightKg != null) ? _bmi.toStringAsFixed(1) : '-'),
               ],
@@ -576,7 +593,7 @@ class _RecordScreenState extends State<RecordScreen> {
               leading: moodBadge(item.satisfactionLevel),
               title: Text('${_dateStr(item.date)} · ${item.workoutName}'),
               subtitle: Text(
-                  '시간 ${item.duration}분 • 컨디션 ${item.satisfactionLevel ?? 0}$memoTail'),
+                  '시간 ${item.duration}분 • ${moodLabel(item.satisfactionLevel)}$memoTail'),
               onTap: widget.userId == null ? () => _onEdit(item) : null,
               trailing: widget.userId == null
                   ? IconButton(
@@ -687,19 +704,39 @@ class _EditSheetState extends State<_EditSheet> {
                 children: [
                   Text('날짜: ${_dateStr(_date)}'),
                   const SizedBox(width: 8),
-                  TextButton(onPressed: _pickDate, child: const Text('변경')),
+                  TextButton(
+                    onPressed: _pickDate,
+                    style: TextButton.styleFrom(
+                      foregroundColor: buttonGreen, // 글씨 및 아이콘 색
+                    ),
+                    child: const Text('변경'),
+                  ),
                 ],
               ),
               TextFormField(
                 controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: '운동명'),
+                decoration: InputDecoration(
+                  labelText: '운동명',
+                  labelStyle: TextStyle(color: Colors.grey), // 기본 라벨 색
+                  floatingLabelStyle: TextStyle(color: Colors.green), // 포커스 시 라벨 색
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.green), // 포커스 시 밑줄 초록색
+                  ),
+                ),
                 validator: (v) =>
                 (v == null || v.trim().isEmpty) ? '운동명을 입력하세요.' : null,
                 maxLength: 100,
               ),
+
               TextFormField(
                 controller: _durationCtrl,
-                decoration: const InputDecoration(labelText: '시간(분)'),
+                decoration: InputDecoration(
+                  labelText: '시간(분)',
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.green),
+                  ),
+                  floatingLabelStyle: TextStyle(color: Colors.green),
+                ),
                 keyboardType: TextInputType.number,
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return '시간을 입력하세요.';
@@ -708,45 +745,58 @@ class _EditSheetState extends State<_EditSheet> {
                   return null;
                 },
               ),
+
               const SizedBox(height: 12),
+
               Row(
                 children: [
                   const Text('컨디션'),
                   const SizedBox(width: 12),
                   DropdownButton<int>(
                     value: _satisfaction,
-                    onChanged: (v) =>
-                        setState(() => _satisfaction = v ?? 3),
+                    onChanged: (v) => setState(() => _satisfaction = v ?? 3),
                     items: const [
                       DropdownMenuItem(value: 1, child: Text('매우 힘듦')),
                       DropdownMenuItem(value: 2, child: Text('힘듦')),
                       DropdownMenuItem(value: 3, child: Text('보통')),
                       DropdownMenuItem(value: 4, child: Text('만족')),
                     ],
+
                   ),
                   const SizedBox(width: 12),
                   moodBadge(_satisfaction),
                 ],
               ),
+
               TextFormField(
                 controller: _memoCtrl,
-                decoration: const InputDecoration(labelText: '메모(선택)'),
+                decoration: InputDecoration(
+                  labelText: '메모(선택)',
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.green),
+                  ),
+                  floatingLabelStyle: TextStyle(color: Colors.green),
+                ),
                 maxLength: 10000,
                 maxLines: 3,
               ),
+
               const SizedBox(height: 16),
+
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.green,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
+                    side: BorderSide(color: Colors.green), // 테두리 초록색
                   ),
                 ),
                 onPressed: _submit,
                 child: const Text('저장'),
               ),
+
               const SizedBox(height: 8),
             ],
           ),
@@ -758,6 +808,7 @@ class _EditSheetState extends State<_EditSheet> {
 
 Widget _metricChip(String label, String value) {
   return Chip(
+    backgroundColor: Colors.green[100],
     label: Column(
       mainAxisSize: MainAxisSize.min,
       children: [

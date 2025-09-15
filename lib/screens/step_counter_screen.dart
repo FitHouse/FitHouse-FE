@@ -126,7 +126,7 @@ class _StepCounterScreenState extends State<StepCounterScreen>
   String range = 'today';
   List<FamilySteps> _family = [];
 
-  FamilyStepsSummary? _familySummary; // ✅ 주간 요약 저장용
+  FamilyStepsSummary? _familySummary; // 주간 요약 저장용
 
   static const _eventChannel = EventChannel('step_counter/events');
   StreamSubscription? _sub;
@@ -164,7 +164,7 @@ class _StepCounterScreenState extends State<StepCounterScreen>
   @override
   void dispose() {
     if (!_hasFlushedThisCycle) {
-      debugPrint("📌 화면 dispose → 서버 저장");
+      debugPrint(" 화면 dispose → 서버 저장");
       _flush(sync: true);
       _hasFlushedThisCycle = true;
     }
@@ -182,7 +182,7 @@ class _StepCounterScreenState extends State<StepCounterScreen>
 
     _midnightTimer?.cancel();
     _midnightTimer = Timer(duration, () async {
-      debugPrint("🌙 자정 도달 → 오늘 기록 초기화 + 주간 데이터 갱신");
+      debugPrint("자정 도달 → 오늘 기록 초기화 + 주간 데이터 갱신");
 
       _startSensorSteps = 0;
       _startServerSteps = 0;
@@ -248,7 +248,7 @@ class _StepCounterScreenState extends State<StepCounterScreen>
       _startServerSteps = meToday.today;
 
       setState(() {
-        _familySummary = summary; // ✅ 저장
+        _familySummary = summary; //  저장
         _family = todayList;
         todaySteps = meToday.today;
 
@@ -263,7 +263,7 @@ class _StepCounterScreenState extends State<StepCounterScreen>
         }
       });
     } catch (e) {
-      debugPrint("❌ 걸음 수 불러오기 실패: $e");
+      debugPrint("걸음 수 불러오기 실패: $e");
     }
   }
 
@@ -302,7 +302,7 @@ class _StepCounterScreenState extends State<StepCounterScreen>
         (_sensorStepsNow - _startSensorSteps).clamp(0, 999999);
 
     if (adjustedSteps == _lastSent) {
-      debugPrint("⏩ 변동 없음, 전송 안 함 (steps=$adjustedSteps)");
+      debugPrint(" 변동 없음, 전송 안 함 (steps=$adjustedSteps)");
       return;
     }
 
@@ -320,7 +320,7 @@ class _StepCounterScreenState extends State<StepCounterScreen>
       });
 
       final uri = Uri.parse('$kBaseUrl/api/steps/today');
-      debugPrint("📤 PUT $uri steps=$adjustedSteps");
+      debugPrint("PUT $uri steps=$adjustedSteps");
 
       final res = await http.put(
         uri,
@@ -332,14 +332,14 @@ class _StepCounterScreenState extends State<StepCounterScreen>
         body: body,
       );
 
-      debugPrint("📥 Response ${res.statusCode}: ${res.body}");
+      debugPrint("Response ${res.statusCode}: ${res.body}");
 
       if (res.statusCode == 200) {
         _lastSent = adjustedSteps;
         _lastSendTime = now;
       }
     } catch (e) {
-      debugPrint("❌ 서버 전송 실패: $e");
+      debugPrint("서버 전송 실패: $e");
     }
   }
 
@@ -354,7 +354,7 @@ class _StepCounterScreenState extends State<StepCounterScreen>
     } else if (state == AppLifecycleState.resumed) {
       final now = DateTime.now();
       if (_lastFetchedDate == null || !_isSameDay(_lastFetchedDate!, now)) {
-        debugPrint("📌 날짜 변경 감지 → 데이터 새로 fetch");
+        debugPrint("날짜 변경 감지 → 데이터 새로 fetch");
         _fetchSteps();
         _lastFetchedDate = now;
       }
@@ -377,7 +377,7 @@ class _StepCounterScreenState extends State<StepCounterScreen>
     final familyCount = _family.isNotEmpty ? _family.length : 1;
     final weeklyGoal = _myGoal * familyCount * 7;
 
-    // ✅ 백엔드 family.totalSteps 사용
+    // 백엔드 family.totalSteps 사용
     final weeklySteps = _familySummary?.family?.totalSteps ?? 0;
 
     final totalTodaySteps = _family.isNotEmpty
