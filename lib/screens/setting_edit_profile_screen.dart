@@ -7,12 +7,13 @@ import '../api/user_profile_api.dart';
 import '../models/user_profile.dart';
 import 'password_change_screen.dart';
 
-const _baseUrl = 'http://marketalert.iptime.org:8080';
+import '../api/http_client.dart' show baseUrl;
+
 String? _abs(String? url) {
   if (url == null || url.isEmpty) return null;
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
   if (!url.startsWith('/')) url = '/$url';
-  return '$_baseUrl$url';
+  return '$baseUrl$url';
 }
 
 class ProfileData {
@@ -138,19 +139,16 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
     }
   }
 
-  // ===== 저장(PATCH /api/users/me) =====
   Future<void> _saveAndPop() async {
     if (_saving) return;
 
     final Map<String, dynamic> payload = {};
 
-    // 닉네임 변경 시에만 포함
     final nicknameNew = _nick.text.trim();
     if (nicknameNew.isNotEmpty && nicknameNew != widget.initial.nickname) {
       payload['name'] = nicknameNew;
     }
 
-    // 생년월일 YYYY-MM-DD
     final birthTrim = _birth.trim();
     final birthOld = (widget.initial.birth ?? '').trim();
     final birthValid = RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(birthTrim);
@@ -164,7 +162,6 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
       payload['birthdate'] = birthTrim;
     }
 
-    // 키/몸무게 (변경 시에만)
     if (widget.initial.heightCm == null || _heightCm != widget.initial.heightCm) {
       payload['height'] = _heightCm;
     }
@@ -172,7 +169,6 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
       payload['weight'] = _weightKg;
     }
 
-    // 변경 없음 && 이미지도 안 바뀐 경우
     if (payload.isEmpty && _latestFromServer == null) {
       Navigator.pop<UserProfile?>(context, null);
       return;
@@ -280,21 +276,33 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
               children: [
                 const _FieldLabel('닉네임'),
                 const SizedBox(height: 10),
-                TextField(
-                  controller: _nick,
-                  maxLength: 10,
-                  cursorColor: Colors.green,
-                  decoration: InputDecoration(
-                    hintText: '사용할 수 있는 닉네임입니다',
-                    border: const OutlineInputBorder(),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.green, width: 2),
+                Stack(
+                  children: [
+                    TextField(
+                      controller: _nick,
+                      maxLength: 30,
+                      onChanged: (_) => setState(() {}),
+                      cursorColor: Colors.green,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Colors.green, width: 2),
+                        ),
+                        counterText: '',
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      style: TextStyle(fontSize: 16),
                     ),
-                    counterText: '',
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  ),
-                  style: const TextStyle(fontSize: 16),
+                    Positioned(
+                      right: 10,
+                      bottom: 8,
+                      child: Text(
+                        '(${_nick.text.length}/30)',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
               ],
@@ -331,11 +339,9 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
                   label: '생년월일',
                   value: _birth.isEmpty ? '미설정' : _birth,
                   onEdit: () async {
+                    final init = _birth.isEmpty ? null : DateTime.tryParse(_birth);
                     final res = await _openSheet<String>(
-                      TextEditSheet(
-                        label: 'YYYY-MM-DD',
-                        initial: _birth,
-                      ),
+                      BirthDateSheet(initial: init),
                     );
                     if (res != null) setState(() => _birth = res);
                   },
@@ -350,7 +356,6 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
           _Section(
             child: Column(
               children: [
-                // 이메일: 읽기 전용
                 _InfoRow(
                   label: '이메일',
                   value: _email,
@@ -544,7 +549,7 @@ class _InfoRow extends StatelessWidget {
     ),
     trailing: showTrailingButton
         ? TextButton(onPressed: onEdit, style: TextButton.styleFrom(
-      foregroundColor: Colors.green, // 예: 초록색
+      foregroundColor: Colors.green,
     ),child: const Text('변경'))
         : null,
   );
@@ -615,7 +620,7 @@ class _TextEditSheetState extends State<TextEditSheet> {
     padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: Colors.green, width: 2),  // 테두리 초록색, 두께 2
+      side: BorderSide(color: Colors.green, width: 2),
     ),
   );
 
@@ -642,7 +647,7 @@ class _TextEditSheetState extends State<TextEditSheet> {
             Align(
               alignment: Alignment.centerRight,
               child: ElevatedButton(
-                style: greenButtonStyle,  // 여기에 스타일 지정
+                style: greenButtonStyle,
                 onPressed: () => Navigator.pop(context, _c.text.trim()),
                 child: const Text('저장'),
               ),
@@ -734,8 +739,8 @@ class _HeightWeightSheetState extends State<HeightWeightSheet> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
                       labelText: '키 (cm)',
-                      labelStyle: TextStyle(color: Colors.grey),               // 기본 라벨 색
-                      floatingLabelStyle: TextStyle(color: Colors.green),       // 포커스 시 라벨 색
+                      labelStyle: TextStyle(color: Colors.grey),
+                      floatingLabelStyle: TextStyle(color: Colors.green),
                       border: greenBorder,
                       focusedBorder: greenBorder,
                       isDense: true,
@@ -750,8 +755,8 @@ class _HeightWeightSheetState extends State<HeightWeightSheet> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
                       labelText: '몸무게 (kg)',
-                      labelStyle: TextStyle(color: Colors.grey),          // 기본 라벨 색
-                      floatingLabelStyle: TextStyle(color: Colors.green),  // 포커스 시 라벨 색
+                      labelStyle: TextStyle(color: Colors.grey),
+                      floatingLabelStyle: TextStyle(color: Colors.green),
                       border: OutlineInputBorder(),
                       focusedBorder: OutlineInputBorder(
                         borderSide: BorderSide(color: Colors.green, width: 2),
@@ -784,4 +789,85 @@ class _HWResult {
   final double heightCm;
   final double weightKg;
   _HWResult(this.heightCm, this.weightKg);
+}
+
+class BirthDateSheet extends StatefulWidget {
+  final DateTime? initial;
+  const BirthDateSheet({super.key, this.initial});
+
+  @override
+  State<BirthDateSheet> createState() => _BirthDateSheetState();
+}
+
+class _BirthDateSheetState extends State<BirthDateSheet> {
+  late DateTime _selected;
+  final DateTime _firstDate = DateTime(1900, 1, 1);
+  final DateTime _lastDate = DateTime.now();
+
+  String _fmt(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = (widget.initial != null)
+        ? widget.initial!
+        : DateTime(DateTime.now().year - 20, 1, 1); // 기본값: 만 20세 기준
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final green = Colors.green;
+
+    final ButtonStyle greenButtonStyle = ElevatedButton.styleFrom(
+      backgroundColor: green,
+      foregroundColor: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      elevation: 0,
+    );
+
+    return FractionallySizedBox(
+      heightFactor: 0.52,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: Column(
+          children: [
+            const _SheetHandle(),
+            const SizedBox(height: 16),
+
+            // 초록 테마 캘린더
+            Expanded(
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  colorScheme: Theme.of(context).colorScheme.copyWith(
+                    primary: Colors.green,
+                    secondary: Colors.green,
+                  ),
+                  datePickerTheme: const DatePickerThemeData(
+                  ),
+                ),
+                child: CalendarDatePicker(
+                  initialDate: _selected,
+                  firstDate: _firstDate,
+                  lastDate: _lastDate,
+                  onDateChanged: (d) => setState(() => _selected = d),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton(
+                style: greenButtonStyle,
+                onPressed: () => Navigator.pop(context, _fmt(_selected)),
+                child: const Text('저장'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
