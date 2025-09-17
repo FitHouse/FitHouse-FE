@@ -1,17 +1,21 @@
+import 'package:fithouse/screens/customer_support_screen.dart';
+import 'package:fithouse/screens/legal_docs_screen.dart';
+import 'package:fithouse/screens/notice_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../api/user_profile_api.dart';
 import '../models/user_profile.dart';
 import 'setting_edit_profile_screen.dart';
 
-const _baseUrl = 'http://marketalert.iptime.org:8080';
+import '../api/http_client.dart' show baseUrl;
 
 String? _abs(String? url) {
   if (url == null || url.isEmpty) return null;
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
   if (!url.startsWith('/')) url = '/$url';
-  return '$_baseUrl$url';
+  return '$baseUrl$url';
 }
 
 class SettingScreen extends StatefulWidget {
@@ -22,13 +26,14 @@ class SettingScreen extends StatefulWidget {
 }
 
 class _SettingScreenState extends State<SettingScreen> {
-  bool _workoutNoti = true;
-  bool _noticeNoti = true;
-
   late final UserProfileApi _api;
   UserProfile? _profile;
   bool _loading = true;
   String? _error;
+
+  // 앱 버전
+  String _appVersion = '-';
+  String _buildNumber = '-';
 
   String _fmtNum(double v) =>
       (v == v.roundToDouble()) ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
@@ -38,13 +43,20 @@ class _SettingScreenState extends State<SettingScreen> {
     super.initState();
     _api = UserProfileApi();
     _load();
-    _printIdToken();
+    _loadPackageInfo();
   }
 
-  Future<void> _printIdToken() async {
-    final token = await FirebaseAuth.instance.currentUser!.getIdToken(true);
-    debugPrint('=== FIREBASE ID TOKEN ===');
-    debugPrint(token);
+  Future<void> _loadPackageInfo() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() {
+        _appVersion = info.version;
+        _buildNumber = info.buildNumber;
+      });
+    } catch (_) {
+      // 실패시 기본값 유지
+    }
   }
 
   Future<void> _load() async {
@@ -137,7 +149,7 @@ class _SettingScreenState extends State<SettingScreen> {
 
     final heightCm = p.height == null ? '-' : _fmtNum(p.height!);
     final weightKg = p.weight == null ? '-' : p.weight!.toStringAsFixed(1);
-    final bmi = p.bmi == null ? '-' : p.bmi!.toStringAsFixed(1);
+    final bmiStr = (p.bmi == null) ? null : 'BMI: ${p.bmi!.toStringAsFixed(1)}';
 
     final avatarAbsUrl =
         _abs(p.profileImageUrl) ?? FirebaseAuth.instance.currentUser?.photoURL;
@@ -145,7 +157,6 @@ class _SettingScreenState extends State<SettingScreen> {
     final familyName = p.familyName;
 
     final hwLine = '키/몸무게: $heightCm cm / $weightKg kg';
-    final hwWithBmi = (bmi == '-') ? hwLine : '$hwLine (BMI $bmi)';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -163,7 +174,6 @@ class _SettingScreenState extends State<SettingScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 프로필 사진
                       CircleAvatar(
                         radius: 28,
                         backgroundImage: (avatarAbsUrl != null && avatarAbsUrl.isNotEmpty)
@@ -189,7 +199,8 @@ class _SettingScreenState extends State<SettingScreen> {
                                     overflow: TextOverflow.ellipsis,
                                     style: (textTheme.titleLarge ??
                                         const TextStyle(fontSize: 40))
-                                        .copyWith(fontWeight: FontWeight.w500, fontSize: 22),
+                                        .copyWith(
+                                        fontWeight: FontWeight.w500, fontSize: 22),
                                   ),
                                 ),
                                 IconButton(
@@ -203,7 +214,6 @@ class _SettingScreenState extends State<SettingScreen> {
                             ),
                             const SizedBox(height: 6),
 
-                            // 가족명 (있을 때만)
                             if (familyName != null && familyName.isNotEmpty)
                               Text(
                                 '가족: $familyName',
@@ -213,14 +223,23 @@ class _SettingScreenState extends State<SettingScreen> {
                               ),
 
                             const SizedBox(height: 2),
+
                             SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
                               child: Text(
-                                hwWithBmi,
+                                hwLine,
                                 softWrap: false,
                                 style: const TextStyle(height: 1.25),
                               ),
                             ),
+
+                            if (bmiStr != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                bmiStr,
+                                style: const TextStyle(height: 1.25),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -232,44 +251,42 @@ class _SettingScreenState extends State<SettingScreen> {
 
             const _BlockSpacer(),
 
-            const _BoldSectionHeader('계정 설정'),
+            // ===== 이용 안내 =====
+            _SectionHeader('이용 안내', left: 22, fontSize: 18),
             _Section(
               child: Column(
                 children: [
-                  SwitchListTile(
-                    title: const Text('운동 알림'),
-                    value: _workoutNoti,
-                    onChanged: (v) => setState(() => _workoutNoti = v),
-                    activeColor: Colors.green,
-                  ),
-                  SwitchListTile(
-                    title: const Text('공지 알림'),
-                    value: _noticeNoti,
-                    onChanged: (v) => setState(() => _noticeNoti = v),
-                    activeColor: Colors.green,
-                  ),
                   ListTile(
-                    title: const Text('계정 연동'),
-                    subtitle: const Text('Google 연동됨'),
-                    trailing: const Icon(Icons.chevron_right),
+                    title: const Text('고객센터'),
                     onTap: () {
-                      // TODO: 계정 연동 상세
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CustomerSupportScreen()),
+                      );
                     },
                   ),
-                ],
-              ),
-            ),
-
-            const _BlockSpacer(),
-
-            const _BoldSectionHeader('기타'),
-            _Section(
-              child: Column(
-                children: const [
-                  ListTile(title: Text('고객센터')),
-                  ListTile(title: Text('공지사항')),
-                  ListTile(title: Text('약관 및 개인정보 처리방침')),
-                  ListTile(title: Text('앱 버전'), subtitle: Text('2.0.7')),
+                  ListTile(
+                    title: const Text('공지사항'),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const NoticeScreen()),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    title: const Text('약관 및 개인정보 처리방침'),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const LegalDocsScreen()),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    title: const Text('앱 버전'),
+                    subtitle: Text(_appVersion),
+                  ),
                 ],
               ),
             ),
@@ -284,9 +301,10 @@ class _SettingScreenState extends State<SettingScreen> {
                     onTap: _signOut,
                   ),
                   ListTile(
-                    title: const Text('회원 탈퇴',
-                        style:
-                        TextStyle(color: Colors.red)),
+                    title: const Text(
+                      '회원 탈퇴',
+                      style: TextStyle(color: Colors.red),
+                    ),
                     onTap: () async {
                       // TODO: 탈퇴 확인 + 서버 요청
                     },
@@ -294,7 +312,6 @@ class _SettingScreenState extends State<SettingScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 16),
           ],
         ),
@@ -310,18 +327,24 @@ class _BlockSpacer extends StatelessWidget {
       Container(height: 6, color: const Color(0xFFF2F3F5));
 }
 
-class _BoldSectionHeader extends StatelessWidget {
+class _SectionHeader extends StatelessWidget {
   final String text;
-  const _BoldSectionHeader(this.text, {super.key});
+  final double left;
+  final double fontSize;
+
+  const _SectionHeader(
+      this.text, {
+        super.key,
+        this.left = 16,
+        this.fontSize = 16,
+      });
+
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+    padding: EdgeInsets.fromLTRB(left, 14, 16, 8),
     child: Text(
       text,
-      style: const TextStyle(
-        fontWeight: FontWeight.w700,
-        fontSize: 16,
-      ),
+      style: TextStyle(fontWeight: FontWeight.w700, fontSize: fontSize),
     ),
   );
 }
