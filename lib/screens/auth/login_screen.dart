@@ -16,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _form = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _pw = TextEditingController();
+  final _pwFocus = FocusNode();
 
   bool _showPw = false;
   bool _loading = false;
@@ -25,7 +26,19 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _email.dispose();
     _pw.dispose();
+    _pwFocus.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map && args['prefillEmail'] is String) {
+      _email.text = (args['prefillEmail'] as String);
+      Future.microtask(() => _pwFocus.requestFocus());
+      setState(() {});
+    }
   }
 
   bool get _canSubmit =>
@@ -35,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final s = v?.trim() ?? '';
     if (s.isEmpty) return '이메일을 입력하세요';
     final ok = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(s);
-    return ok ? null : '올바른 이메일 형식입니다';
+    return ok ? null : '올바른 이메일 형식이 아닙니다';
   }
 
   String? _validatePw(String? v) {
@@ -84,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _pw.text,
       );
       if (!mounted) return;
-      Navigator.of(context).pushNamedAndRemoveUntil('/main', (route) => false);
+      Navigator.of(context).pushNamedAndRemoveUntil('/auth', (route) => false);
     } on FirebaseAuthException catch (e) {
       setState(() => _error = _humanizeLoginError(e));
     } catch (_) {
@@ -121,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           fontSize: 60,
                           fontWeight: FontWeight.w900,
                           letterSpacing: -0.5,
-                            color: const Color(0xFF488500),
+                          color: const Color(0xFF488500),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -137,11 +150,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextFormField(
                         controller: _email,
                         keyboardType: TextInputType.emailAddress,
-                        cursorColor: buttonGreen, // <-- 커서도 초록
+                        cursorColor: buttonGreen,
                         decoration: InputDecoration(
                           labelText: '이메일 주소',
-                          labelStyle: TextStyle(color: Color(0xFF4B4B4B)),
-                          floatingLabelStyle: TextStyle(color: buttonGreen),
+                          labelStyle: const TextStyle(color: Color(0xFF4B4B4B)),
+                          floatingLabelStyle: const TextStyle(color: buttonGreen),
                           filled: true,
                           fillColor: Colors.grey.shade50,
                           border: _roundedBorder(grey),
@@ -164,12 +177,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       // 비밀번호
                       TextFormField(
                         controller: _pw,
+                        focusNode: _pwFocus, // 포커스 연결
                         obscureText: !_showPw,
                         cursorColor: buttonGreen,
                         decoration: InputDecoration(
                           labelText: '비밀번호',
-                          labelStyle: TextStyle(color: Color(0xFF4B4B4B)),
-                          floatingLabelStyle: TextStyle(color: buttonGreen),
+                          labelStyle: const TextStyle(color: Color(0xFF4B4B4B)),
+                          floatingLabelStyle: const TextStyle(color: buttonGreen),
                           filled: true,
                           fillColor: Colors.grey.shade50,
                           border: _roundedBorder(grey),
