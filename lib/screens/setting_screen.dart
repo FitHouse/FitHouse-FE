@@ -1,4 +1,5 @@
 import 'package:fithouse/screens/customer_support_screen.dart';
+import 'package:fithouse/screens/delete_account_screen.dart';
 import 'package:fithouse/screens/legal_docs_screen.dart';
 import 'package:fithouse/screens/notice_screen.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +31,7 @@ class _SettingScreenState extends State<SettingScreen> {
   UserProfile? _profile;
   bool _loading = true;
   String? _error;
+  bool _deleting = false;
 
   // 앱 버전
   String _appVersion = '-';
@@ -110,6 +112,78 @@ class _SettingScreenState extends State<SettingScreen> {
 
     if (!mounted || updated == null) return;
     setState(() => _profile = updated);
+  }
+
+  Future<void> _confirmWithdraw() async {
+    final controller = TextEditingController();
+    bool canConfirm = false;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('회원 탈퇴'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('탈퇴 시 모든 정보가 삭제됩니다. 되돌릴 수 없습니다.'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  labelText: '확인 문구 입력',
+                  hintText: '탈퇴',
+                ),
+                onChanged: (v) => setState(() => canConfirm = (v.trim() == '탈퇴')),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: _deleting ? null : () => Navigator.pop(ctx, false),
+              child: const Text('취소'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: canConfirm ? Colors.red : const Color(0xFFDBE1E6),
+                foregroundColor: Colors.white,
+                elevation: 0, minimumSize: const Size.fromHeight(44),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: (!canConfirm || _deleting) ? null : () => Navigator.pop(ctx, true),
+              child: _deleting
+                  ? const SizedBox(height: 20, width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('영구 탈퇴'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (ok == true) await _deleteAccount();
+  }
+
+  Future<void> _deleteAccount() async {
+    if (!mounted) return;
+    setState(() => _deleting = true);
+    try {
+      await _api.deleteAccount();
+      await FirebaseAuth.instance.signOut();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('탈퇴가 완료되었습니다.')),
+      );
+      Navigator.of(context).popUntil((r) => r.isFirst);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('탈퇴 실패: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _deleting = false);
+    }
   }
 
   @override
@@ -305,8 +379,8 @@ class _SettingScreenState extends State<SettingScreen> {
                       '회원 탈퇴',
                       style: TextStyle(color: Colors.red),
                     ),
-                    onTap: () async {
-                      // TODO: 탈퇴 확인 + 서버 요청
+                    onTap: _deleting ? null : () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const DeleteAccountScreen()),);
                     },
                   ),
                 ],

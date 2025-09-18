@@ -123,4 +123,22 @@ class UserProfileApi {
 
     throw Exception('Failed to leave family: ${res.statusCode} - ${res.body}');
   }
+
+  Future<void> deleteAccount() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('Not authenticated');
+
+    final idToken = await user.getIdToken();
+    final res = await _client.delete(
+      Uri.parse('$_baseUrl/api/users/me'),
+      headers: {
+        'Authorization': 'Bearer $idToken',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (res.statusCode != 204) {
+      throw Exception('Failed to delete account: ${res.statusCode} ${res.body}');
+    }
+  }
 }
