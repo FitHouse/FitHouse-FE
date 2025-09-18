@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:fithouse/constants/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -231,7 +232,7 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
         actions: [
           TextButton(
             onPressed: _saving ? null : _saveAndPop,
-            style: TextButton.styleFrom(foregroundColor: Colors.green),
+            style: TextButton.styleFrom(foregroundColor: buttonGreen),
             child: const Text('저장'),
           ),
         ],
@@ -249,18 +250,26 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
                 children: [
                   CircleAvatar(
                     radius: 50,
-                    backgroundImage:
-                    avatarUrl != null ? NetworkImage(avatarUrl!) : null,
-                    child:
-                    avatarUrl == null ? const Icon(Icons.person, size: 50) : null,
+                    backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl!) : null,
+                    child: avatarUrl == null ? const Icon(Icons.person, size: 50) : null,
                   ),
                   Positioned(
                     right: 0,
                     bottom: 0,
-                    child: IconButton.filledTonal(
-                      style: IconButton.styleFrom(padding: const EdgeInsets.all(6)),
-                      onPressed: _pickFromGallery,
-                      icon: const Icon(Icons.edit, size: 20),
+                    child: GestureDetector(
+                      onTap: _pickFromGallery,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: buttonGreen,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.edit,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -282,11 +291,11 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
                       controller: _nick,
                       maxLength: 30,
                       onChanged: (_) => setState(() {}),
-                      cursorColor: Colors.green,
+                      cursorColor: buttonGreen,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
                         focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.green, width: 2),
+                          borderSide: BorderSide(color: buttonGreen, width: 2),
                         ),
                         counterText: '',
                         isDense: true,
@@ -386,7 +395,10 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
                           title: const Text('비밀번호 변경 불가'),
                           content: const Text('소셜 로그인 계정은 비밀번호를 변경할 수 없습니다.'),
                           actions: [
-                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('확인')),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('확인'),
+                            ),
                           ],
                         ),
                       );
@@ -423,7 +435,9 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
                       foregroundColor: Colors.red,
                       side: const BorderSide(color: Colors.red),
                     ),
-                    onPressed: _leaving ? null : () async {
+                    onPressed: _leaving
+                        ? null
+                        : () async {
                       final ok = await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
@@ -468,7 +482,8 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         SizedBox(
-                          height: 16, width: 16,
+                          height: 16,
+                          width: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                         SizedBox(width: 8),
@@ -548,9 +563,13 @@ class _InfoRow extends StatelessWidget {
       ),
     ),
     trailing: showTrailingButton
-        ? TextButton(onPressed: onEdit, style: TextButton.styleFrom(
-      foregroundColor: Colors.green,
-    ),child: const Text('변경'))
+        ? TextButton(
+      onPressed: onEdit,
+      style: TextButton.styleFrom(
+        foregroundColor: buttonGreen,
+      ),
+      child: const Text('변경'),
+    )
         : null,
   );
 }
@@ -615,58 +634,59 @@ class _TextEditSheetState extends State<TextEditSheet> {
   }
 
   final ButtonStyle greenButtonStyle = ElevatedButton.styleFrom(
-    backgroundColor: Colors.green,
+    backgroundColor: buttonGreen,
     foregroundColor: Colors.white,
     padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: Colors.green, width: 2),
+      side: BorderSide(color: buttonGreen, width: 2),
     ),
   );
 
-
   @override
   Widget build(BuildContext context) {
-    return FractionallySizedBox(
-      heightFactor: 0.25,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.max,
-          children: [
-            const _SheetHandle(),
-            const SizedBox(height: 25),
-            TextField(
-              controller: _c,
-              decoration: InputDecoration(
-                labelText: widget.label,
-                border: const OutlineInputBorder(),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Wrap(
+        children: [
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const _SheetHandle(),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _c,
+                decoration: InputDecoration(
+                  labelText: widget.label,
+                  border: const OutlineInputBorder(),
+                ),
               ),
-            ),
-            const Spacer(),
-            Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton(
-                style: greenButtonStyle,
-                onPressed: () => Navigator.pop(context, _c.text.trim()),
-                child: const Text('저장'),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: ElevatedButton(
+                  style: greenButtonStyle,
+                  onPressed: () => Navigator.pop(context, _c.text.trim()),
+                  child: const Text('저장'),
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
 }
 
 class HeightWeightSheet extends StatefulWidget {
-  final double initHeightCm;
-  final double initWeightKg;
   const HeightWeightSheet({
     super.key,
     required this.initHeightCm,
     required this.initWeightKg,
   });
+
+  final double initHeightCm;
+  final double initWeightKg;
 
   @override
   State<HeightWeightSheet> createState() => _HeightWeightSheetState();
@@ -675,6 +695,10 @@ class HeightWeightSheet extends StatefulWidget {
 class _HeightWeightSheetState extends State<HeightWeightSheet> {
   late final TextEditingController _h;
   late final TextEditingController _w;
+
+  double get _height => double.tryParse(_h.text) ?? 0;
+  double get _weight => double.tryParse(_w.text) ?? 0;
+  bool get _valid => _height > 0 && _weight > 0;
 
   String _fmt(double v) =>
       (v == v.roundToDouble()) ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
@@ -693,93 +717,232 @@ class _HeightWeightSheetState extends State<HeightWeightSheet> {
     super.dispose();
   }
 
+  void _bump(TextEditingController c, double delta, {int fractionDigits = 1}) {
+    final v = (double.tryParse(c.text) ?? 0) + delta;
+    if (v <= 0) return;
+    final str =
+    (fractionDigits == 0) ? v.round().toString() : v.toStringAsFixed(fractionDigits);
+    setState(() => c.text = str);
+  }
+
+  final OutlineInputBorder _boxBorder = OutlineInputBorder(
+    borderSide: const BorderSide(color: Color(0xFFE5E7EB), width: 1),
+    borderRadius: BorderRadius.circular(12),
+  );
+
+  final OutlineInputBorder _focusBorder = OutlineInputBorder(
+    borderSide: const BorderSide(color: buttonGreen, width: 2),
+    borderRadius: BorderRadius.circular(12),
+  );
+
+  final ButtonStyle _saveStyle = ElevatedButton.styleFrom(
+    backgroundColor: buttonGreen,
+    foregroundColor: Colors.white,
+    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 22),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    elevation: 0,
+  );
+
+  Widget _unitPill(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 12,
+          color: Color(0xFF475569),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _numberBox({
+    required String label,
+    required TextEditingController controller,
+    required String unitText,
+    required int fractionDigits,
+    double step = 0.5,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18)),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0F000000),
+                blurRadius: 6,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () => _bump(controller, -step, fractionDigits: fractionDigits),
+                icon: const Icon(Icons.remove),
+                splashRadius: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Stack(
+                  alignment: Alignment.centerRight,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      textAlign: TextAlign.center,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      cursorColor: buttonGreen,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding:
+                        const EdgeInsets.symmetric(vertical: 14, horizontal: 16)
+                            .copyWith(right: 56),
+                        border: _boxBorder,
+                        enabledBorder: _boxBorder,
+                        focusedBorder: _focusBorder,
+                      ),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    Positioned(
+                      right: 12,
+                      child: _unitPill(unitText),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                onPressed: () => _bump(controller, step, fractionDigits: fractionDigits),
+                icon: const Icon(Icons.add),
+                splashRadius: 20,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   void _save() {
-    final h = double.tryParse(_h.text);
-    final w = double.tryParse(_w.text);
-    if (h == null || h <= 0 || w == null || w <= 0) {
+    if (!_valid) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('정상적인 값을 입력하세요.')),
       );
       return;
     }
-    Navigator.pop(context, _HWResult(h, w));
+    Navigator.pop(context, _HWResult(_height, _weight));
   }
 
-  final ButtonStyle greenButtonStyle = ElevatedButton.styleFrom(
-    backgroundColor: Colors.green,
-    foregroundColor: Colors.white,
-    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: Colors.green, width: 2),
-    ),
-  );
-
-  final OutlineInputBorder greenBorder = OutlineInputBorder(
-    borderSide: BorderSide(color: Colors.green, width: 2),
-    borderRadius: BorderRadius.circular(4),
-  );
+  double? _bmiVal() {
+    if (_height <= 0 || _weight <= 0) return null;
+    final h = _height / 100;
+    final bmi = _weight / (h * h);
+    return bmi.isFinite ? bmi : null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return FractionallySizedBox(
-      heightFactor: 0.25,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.max,
-          children: [
-            const _SheetHandle(),
-            const SizedBox(height: 30),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _h,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: '키 (cm)',
-                      labelStyle: TextStyle(color: Colors.grey),
-                      floatingLabelStyle: TextStyle(color: Colors.green),
-                      border: greenBorder,
-                      focusedBorder: greenBorder,
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child:TextField(
-                    controller: _w,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: '몸무게 (kg)',
-                      labelStyle: TextStyle(color: Colors.grey),
-                      floatingLabelStyle: TextStyle(color: Colors.green),
-                      border: OutlineInputBorder(),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.green, width: 2),
-                      ),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
-                  ),
+    final screenH = MediaQuery.of(context).size.height;
+    final bmi = _bmiVal();
 
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+      child: Wrap(
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: screenH * 0.3,
+              maxHeight: screenH * 0.8,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const _SheetHandle(),
+
+                const SizedBox(height: 15),
+
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        _numberBox(
+                          label: '키',
+                          controller: _h,
+                          unitText: 'cm',
+                          fractionDigits: 0,
+                          step: 1,
+                        ),
+
+                        const SizedBox(height: 30),
+
+                        _numberBox(
+                          label: '몸무게',
+                          controller: _w,
+                          unitText: 'kg',
+                          fractionDigits: 1,
+                          step: 0.5,
+                        ),
+
+                        const SizedBox(height: 18),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            children: [
+                              const Text(
+                                'BMI',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                  color: Color(0xFF111827),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                bmi == null ? '-' : bmi.toStringAsFixed(1),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                  color: buttonGreen,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
+
+                const SizedBox(height: 20),
+
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton(
+                    style: _saveStyle,
+                    onPressed: _save,
+                    child: const Text('저장'),
+                  ),
+                ),
+                const SizedBox(height: 20),
               ],
             ),
-            const Spacer(),
-            Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton(
-                style: greenButtonStyle,
-                onPressed: _save,
-                child: const Text('저장'),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -810,63 +973,63 @@ class _BirthDateSheetState extends State<BirthDateSheet> {
   @override
   void initState() {
     super.initState();
-    _selected = (widget.initial != null)
-        ? widget.initial!
-        : DateTime(DateTime.now().year - 20, 1, 1); // 기본값: 만 20세 기준
+    _selected =
+    (widget.initial != null) ? widget.initial! : DateTime(DateTime.now().year - 20, 1, 1);
   }
 
   @override
   Widget build(BuildContext context) {
-    final green = Colors.green;
+    final screenH = MediaQuery.of(context).size.height;
 
     final ButtonStyle greenButtonStyle = ElevatedButton.styleFrom(
-      backgroundColor: green,
+      backgroundColor: buttonGreen,
       foregroundColor: Colors.white,
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 22),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       elevation: 0,
     );
 
-    return FractionallySizedBox(
-      heightFactor: 0.52,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        child: Column(
-          children: [
-            const _SheetHandle(),
-            const SizedBox(height: 16),
-
-            // 초록 테마 캘린더
-            Expanded(
-              child: Theme(
-                data: Theme.of(context).copyWith(
-                  colorScheme: Theme.of(context).colorScheme.copyWith(
-                    primary: Colors.green,
-                    secondary: Colors.green,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+      child: Wrap(
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: screenH * 0.3,
+              maxHeight: screenH * 0.8,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const _SheetHandle(),
+                const SizedBox(height: 20),
+                Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: Theme.of(context).colorScheme.copyWith(
+                      primary: buttonGreen,
+                      secondary: buttonGreen,
+                    ),
                   ),
-                  datePickerTheme: const DatePickerThemeData(
+                  child: CalendarDatePicker(
+                    initialDate: _selected,
+                    firstDate: _firstDate,
+                    lastDate: _lastDate,
+                    onDateChanged: (d) => setState(() => _selected = d),
                   ),
                 ),
-                child: CalendarDatePicker(
-                  initialDate: _selected,
-                  firstDate: _firstDate,
-                  lastDate: _lastDate,
-                  onDateChanged: (d) => setState(() => _selected = d),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton(
+                    style: greenButtonStyle,
+                    onPressed: () => Navigator.pop(context, _fmt(_selected)),
+                    child: const Text('저장'),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 15),
+              ],
             ),
-
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton(
-                style: greenButtonStyle,
-                onPressed: () => Navigator.pop(context, _fmt(_selected)),
-                child: const Text('저장'),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
