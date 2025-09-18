@@ -1,8 +1,7 @@
-// lib/screens/delete_account_screen.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fithouse/api/user_profile_api.dart';
-import 'package:fithouse/constants/colors.dart'; // buttonGreen, white, grey 등 정의
+import 'package:fithouse/constants/colors.dart';
 
 class DeleteAccountScreen extends StatefulWidget {
   const DeleteAccountScreen({super.key});
@@ -201,6 +200,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
               controller: _pwController,
               obscureText: true,
               enabled: !_loading,
+              onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
                 hintText: '비밀번호',
                 hintStyle: TextStyle(color: grey),
