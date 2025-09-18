@@ -60,6 +60,10 @@ class FitHouseApp extends StatelessWidget {
         useMaterial3: false,
       ),
       home: const SplashScreen(),
+      routes: {
+        '/login': (_) => const LoginScreen(),
+        '/auth' : (_) => const AuthGate(),
+      },
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,

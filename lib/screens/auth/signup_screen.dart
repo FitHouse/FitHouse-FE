@@ -8,7 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io' as io;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:fithouse/constants/colors.dart';
-
+import 'package:fithouse/util/legal_docs_loader.dart';
 
 // Role / Gender → 한글 라벨
 extension RoleKo on Role {
@@ -70,7 +70,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
     Role.GRANDMA, Role.GRANDPA, Role.MOM, Role.DAD,
     Role.DAUGHTER, Role.SON
   ];
-
   final List<Gender> _genderOptions = [Gender.MALE, Gender.FEMALE];
 
   @override
@@ -85,7 +84,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
     super.dispose();
   }
 
-  // ===== validators =====
   String? _validateEmail(String? v) {
     final s = v?.trim() ?? '';
     if (s.isEmpty) return '이메일을 입력하세요';
@@ -179,7 +177,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
           return;
         }
         if (_birthdate == null) {
-          setState(() => _error = '생일을 선택해주세요.');
+          setState(() => _error = '생년월일을 선택해주세요.');
           return;
         }
         if (_role == null) {
@@ -195,7 +193,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
   Future<void> _prev() async {
     if (_loading) return;
     if (_step == 0) {
-      // 첫 페이지에서 뒤로가기 → 로그인 화면으로 복귀
       if (mounted) Navigator.pop(context);
       return;
     }
@@ -203,7 +200,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
   }
 
   Future<bool> _onWillPop() async {
-    // 안드로이드 하드웨어 뒤로가기 대응
     if (_loading) return false;
     if (_step == 0) {
       Navigator.pop(context);
@@ -254,11 +250,20 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
         );
       }
 
+      await FirebaseAuth.instance.signOut();
+
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('회원가입 완료!')),
+        const SnackBar(content: Text('회원가입이 완료되었습니다. 로그인해 주세요.')),
       );
-      Navigator.pop(context);
+
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/login',
+            (route) => false,
+        arguments: {'prefillEmail': email},
+      );
+
     } on FirebaseAuthException catch (e) {
       setState(() => _error = _humanizeAuthError(e));
     } catch (e) {
@@ -266,6 +271,147 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _pickBirthdateWithDialog() async {
+    final init = _birthdate ?? DateTime(DateTime.now().year - 20, 1, 1);
+    final firstDate = DateTime(1900, 1, 1);
+    final lastDate  = DateTime.now();
+
+    DateTime temp = init;
+
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          clipBehavior: Clip.antiAlias,
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+
+          insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+          contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+
+          title: const Text('생년월일 선택', style: TextStyle(fontWeight: FontWeight.w700)),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 370,
+            child: Theme(
+              data: Theme.of(ctx).copyWith(
+                colorScheme: Theme.of(ctx).colorScheme.copyWith(
+                  primary: buttonGreen,
+                  secondary: buttonGreen,
+                ),
+              ),
+              child: CalendarDatePicker(
+                initialDate: temp,
+                firstDate: firstDate,
+                lastDate: lastDate,
+                onDateChanged: (d) => temp = d,
+              ),
+            ),
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(
+                  '${temp.year.toString().padLeft(4, '0')}-'
+                      '${temp.month.toString().padLeft(2, '0')}-'
+                      '${temp.day.toString().padLeft(2, '0')}',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: buttonGreen,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('확인', style: TextStyle(fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result != null && result.isNotEmpty) {
+      setState(() => _birthdate = DateTime.tryParse(result));
+    }
+  }
+
+
+
+
+  // 약관/개인정보 팝업
+  Future<void> _openDocDialog({
+    required String title,
+    required Future<String> loader,
+  }) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+
+        clipBehavior: Clip.antiAlias,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+
+        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: MediaQuery.of(ctx).size.height * 0.5,
+          child: FutureBuilder<String>(
+            future: loader,
+            builder: (context, snap) {
+              if (snap.connectionState != ConnectionState.done) {
+                return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+              }
+              if (snap.hasError) {
+                return Center(child: Text('문서를 불러오지 못했습니다: ${snap.error}'));
+              }
+              final text = snap.data ?? '';
+              return Scrollbar(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+                  child: SelectableText(
+                    text,
+                    style: const TextStyle(fontSize: 15, height: 1.6),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: buttonGreen,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('확인', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _progressDots() {
@@ -304,7 +450,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
               ),
               const SizedBox(height: 16),
 
-              // 약관 카드
               Card(
                 elevation: 0,
                 color: const Color(0xFFF8F9FB),
@@ -319,9 +464,10 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                         title: const Text('이용약관', style: TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: const Text('서비스 이용에 관한 기본 약관', style: TextStyle(color: Colors.grey)),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          // TODO: 이용약관 상세 보기(웹뷰/링크)
-                        },
+                        onTap: () => _openDocDialog(
+                          title: '이용약관',
+                          loader: LegalDocsLoader.loadTermsKo(),
+                        ),
                       ),
                       const Divider(height: 20),
                       ListTile(
@@ -330,9 +476,10 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                         title: const Text('개인정보 처리방침', style: TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: const Text('개인정보 수집 및 이용에 대한 안내', style: TextStyle(color: Colors.grey)),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          // TODO: 개인정보 처리방침 상세 보기(웹뷰/링크)
-                        },
+                        onTap: () => _openDocDialog(
+                          title: '개인정보처리방침',
+                          loader: LegalDocsLoader.loadPrivacyKo(),
+                        ),
                       ),
                     ],
                   ),
@@ -379,8 +526,8 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
             cursorColor: buttonGreen,
             decoration: InputDecoration(
               labelText: '이메일 주소',
-              labelStyle: const TextStyle(color: Color(0xFF4B4B4B)), // 기본 회색
-              floatingLabelStyle: TextStyle(color: buttonGreen),      // 포커스 시 초록
+              labelStyle: const TextStyle(color: Color(0xFF4B4B4B)),
+              floatingLabelStyle: TextStyle(color: buttonGreen),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -395,7 +542,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
       ),
     );
   }
-
 
   Widget _stepPassword() {
     return Form(
@@ -504,16 +650,22 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                         : null,
                   ),
                   Positioned(
-                    bottom: 0,
                     right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: buttonGreen,
-                        shape: BoxShape.circle,
+                    bottom: 0,
+                    child: GestureDetector(
+                      onTap: _pickImage,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: buttonGreen,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.edit,
+                          size: 20,
+                          color: Colors.white,
+                        ),
                       ),
-                      child:
-                      const Icon(Icons.edit, color: Colors.white, size: 16),
                     ),
                   ),
                 ],
@@ -611,7 +763,8 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                   isExpanded: true,
                   hint: const Text('성별을 선택하세요'),
                   onChanged: (Gender? v) => setState(() => _gender = v),
-                  items: _genderOptions.map<DropdownMenuItem<Gender>>((Gender value) {
+                  items: _genderOptions
+                      .map<DropdownMenuItem<Gender>>((Gender value) {
                     return DropdownMenuItem<Gender>(
                       value: value,
                       child: Text(value.ko),
@@ -622,23 +775,13 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 생일
+            // 생년월일
             TextFormField(
               readOnly: true,
-              onTap: () async {
-                final date = await showDatePicker(
-                  context: context,
-                  initialDate: DateTime.now(),
-                  firstDate: DateTime(1900),
-                  lastDate: DateTime.now(),
-                );
-                if (date != null) {
-                  setState(() => _birthdate = date);
-                }
-              },
+              onTap: _pickBirthdateWithDialog,
               cursorColor: buttonGreen,
               decoration: InputDecoration(
-                labelText: '생일',
+                labelText: '생년월일',
                 labelStyle: const TextStyle(color: Color(0xFF4B4B4B)),
                 floatingLabelStyle: TextStyle(color: buttonGreen),
                 suffixIcon: const Icon(Icons.calendar_today, color: buttonGreen),
@@ -691,7 +834,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
               validator: _validateWeight,
               onFieldSubmitted: (_) => _next(),
             ),
-
           ],
         ),
       ),
@@ -743,8 +885,10 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: Text(_error!,
-                          style: const TextStyle(color: Colors.red)),
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
                     ),
                   ),
                 Padding(
@@ -763,12 +907,15 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                       ),
                       onPressed: (!_loading && (_step == 0 ? _termsAgreed : true)) ? _next : null,
                       child: _loading
-                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                          : Text(_step == _totalSteps - 1 ? '가입하기' : '다음'),
+                          ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                          : Text(isLast ? '가입하기' : '다음'),
                     ),
                   ),
                 ),
-
               ],
             ),
           ],
@@ -778,21 +925,102 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
   }
 }
 
-class _PolicyRow extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  const _PolicyRow({required this.title, required this.subtitle});
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle({super.key});
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 8, bottom: 12),
+    child: Center(
+      child: Container(
+        width: 40,
+        height: 4,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE0E0E0),
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    ),
+  );
+}
+
+class BirthDateSheet extends StatefulWidget {
+  final DateTime? initial;
+  const BirthDateSheet({super.key, this.initial});
+
+  @override
+  State<BirthDateSheet> createState() => _BirthDateSheetState();
+}
+
+class _BirthDateSheetState extends State<BirthDateSheet> {
+  late DateTime _selected;
+  final DateTime _firstDate = DateTime(1900, 1, 1);
+  final DateTime _lastDate = DateTime.now();
+
+  String _fmt(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = (widget.initial != null)
+        ? widget.initial!
+        : DateTime(DateTime.now().year - 20, 1, 1);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      dense: true,
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(subtitle, style: const TextStyle(color: Colors.grey)),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () {
-        // TODO: 상세 약관 페이지로 이동 (웹뷰/외부링크 등)
-      },
+    final screenH = MediaQuery.of(context).size.height;
+
+    final ButtonStyle greenButtonStyle = ElevatedButton.styleFrom(
+      backgroundColor: buttonGreen,
+      foregroundColor: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 22),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      elevation: 0,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+      child: Wrap(
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: screenH * 0.3,
+              maxHeight: screenH * 0.8,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const _SheetHandle(),
+                const SizedBox(height: 20),
+                Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: Theme.of(context).colorScheme.copyWith(
+                      primary: buttonGreen,
+                      secondary: buttonGreen,
+                    ),
+                  ),
+                  child: CalendarDatePicker(
+                    initialDate: _selected,
+                    firstDate: _firstDate,
+                    lastDate: _lastDate,
+                    onDateChanged: (d) => setState(() => _selected = d),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton(
+                    style: greenButtonStyle,
+                    onPressed: () => Navigator.pop(context, _fmt(_selected)),
+                    child: const Text('저장'),
+                  ),
+                ),
+                const SizedBox(height: 15),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -84,6 +84,8 @@ flutter:
     - assets/images/level3.png
     - assets/images/level4.png
     - assets/images/question.png
+    - assets/docs/privacy_ko.md
+    - assets/docs/terms_ko.md
 
 
   fonts:
