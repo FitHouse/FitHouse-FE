@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'providers/chat_provider.dart';
 import 'screens/auth/login_screen.dart';
@@ -33,7 +34,7 @@ class FitHouseApp extends StatelessWidget {
     return MaterialApp(
       title: '핏하우스',
       debugShowCheckedModeBanner: false,
-      navigatorObservers: [routeObserver], // RouteObserver 등록
+      navigatorObservers: [routeObserver],
       theme: ThemeData(
         scaffoldBackgroundColor: Colors.white,
         primaryColor: mainGreen,
@@ -59,6 +60,16 @@ class FitHouseApp extends StatelessWidget {
         useMaterial3: false,
       ),
       home: const SplashScreen(),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ko', ''),
+        Locale('en', ''),
+      ],
+      locale: const Locale('ko', ''), // 앱 기본 언어를 한국어로
     );
   }
 }

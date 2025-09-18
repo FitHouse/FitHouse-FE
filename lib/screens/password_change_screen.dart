@@ -1,6 +1,6 @@
-// lib/screens/password_change_screen.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../constants/colors.dart';
 
 class PasswordChangeScreen extends StatefulWidget {
   const PasswordChangeScreen({super.key});
@@ -124,8 +124,18 @@ class _PasswordChangeScreenState extends State<PasswordChangeScreen> {
     }
   }
 
+  ButtonStyle _primaryBtnStyle(bool enabled) => ElevatedButton.styleFrom(
+    backgroundColor: enabled ? buttonGreen : const Color(0xFFDBE1E6),
+    foregroundColor: white,
+    elevation: 0,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+  );
+
   @override
   Widget build(BuildContext context) {
+    final bool nextEnabled = _nextEnabled;
+    final bool confirmEnabled = _confirmEnabled;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(title: const Text('비밀번호 변경')),
@@ -154,14 +164,22 @@ class _PasswordChangeScreenState extends State<PasswordChangeScreen> {
                       const Spacer(),
                       SizedBox(
                         width: double.infinity,
-                        height: 48,
+                        height: 52,
                         child: ElevatedButton(
-                          onPressed: _nextEnabled ? _verifyCurrent : null,
+                          style: _primaryBtnStyle(nextEnabled),
+                          onPressed: nextEnabled ? _verifyCurrent : null,
                           child: _loading
                               ? const SizedBox(
-                              width: 18, height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Text('다음'),
+                            width: 20, height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                              : const Text(
+                            '다음',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
                         ),
                       ),
                     ],
@@ -211,14 +229,22 @@ class _PasswordChangeScreenState extends State<PasswordChangeScreen> {
                       const Spacer(),
                       SizedBox(
                         width: double.infinity,
-                        height: 48,
+                        height: 52,
                         child: ElevatedButton(
-                          onPressed: _confirmEnabled ? _applyNew : null,
+                          style: _primaryBtnStyle(confirmEnabled),
+                          onPressed: confirmEnabled ? _applyNew : null,
                           child: _loading
                               ? const SizedBox(
-                              width: 18, height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Text('확인'),
+                            width: 20, height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                              : const Text(
+                            '확인',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
                         ),
                       ),
                     ],

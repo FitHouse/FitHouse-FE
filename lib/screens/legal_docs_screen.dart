@@ -205,7 +205,7 @@ class LegalDocsScreen extends StatelessWidget {
         appBar: AppBar(
           backgroundColor: white,
           elevation: 0,
-          iconTheme: const IconThemeData(color: Colors.black), // 뒤로가기 버튼 검정
+          iconTheme: const IconThemeData(color: Colors.black),
           title: const Text(
             '약관 및 개인정보 처리방침',
             style: TextStyle(
