@@ -367,19 +367,57 @@ class _RecordScreenState extends State<RecordScreen> {
     if (widget.userId != null) return;
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('삭제'),
-        content: const Text('이 운동 기록을 삭제하시겠습니까?'),
+      builder: (ctx) => AlertDialog(
+        title: const Text('삭제', textAlign: TextAlign.center),
+        content: const Padding(
+          padding: EdgeInsets.only(top: 4),
+          child: Text(
+            '이 운동 기록을 삭제하시겠습니까?',
+            textAlign: TextAlign.center,
+          ),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('취소')),
-          TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('삭제')),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.black,
+                    side: const BorderSide(color: buttonGreen),
+                    backgroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('취소', textAlign: TextAlign.center),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: buttonGreen,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(48),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('삭제', textAlign: TextAlign.center),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
+
     if (ok != true) return;
     try {
       await api.delete(workoutId: item.workoutId);
