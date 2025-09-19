@@ -1,14 +1,18 @@
-// community_tab.dart
 import 'dart:convert';
-import 'package:fithouse/constants/colors.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:firebase_auth/firebase_auth.dart';
 
 import 'community_detail_screen.dart';
 import 'community_compose_screen.dart';
+import '../api/http_client.dart' show baseUrl, getJson;
 
-const String kBaseUrl = 'http://marketalert.iptime.org:8080';
+/// (간단) 가족 미소속 에러 - 당장은 이 파일 안에 로컬 클래스로 둔다.
+/// 나중에 재사용 필요해지면 lib/error/no_family_joined_error.dart로 분리하면 됨.
+class NoFamilyJoinedError implements Exception {
+  final String message;
+  NoFamilyJoinedError([this.message = '소속된 가족이 없습니다.']);
+  @override
+  String toString() => message;
+}
 
 class FamilyMember {
   final int id;
@@ -104,48 +108,21 @@ class PageResponse<T> {
 
 class CommunityRepo {
   final String baseUrl;
-  final http.Client _client;
-
-  CommunityRepo({
-    required this.baseUrl,
-    http.Client? client,
-  }) : _client = client ?? http.Client();
-
-  Future<Map<String, String>> _authHeaders({bool forceRefresh = false}) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      throw Exception('로그인이 필요합니다. (FirebaseAuth.currentUser == null)');
-    }
-    final idToken = await user.getIdToken(forceRefresh);
-    return {
-      'Authorization': 'Bearer $idToken',
-      'Accept': 'application/json',
-    };
-  }
-
-  Future<http.Response> _get(Uri uri) async {
-    var res = await _client
-        .get(uri, headers: await _authHeaders())
-        .timeout(const Duration(seconds: 10));
-
-    if (res.statusCode == 401 || res.statusCode == 403) {
-      try {
-        res = await _client
-            .get(uri, headers: await _authHeaders(forceRefresh: true))
-            .timeout(const Duration(seconds: 10));
-      } catch (_) {}
-    }
-    return res;
-  }
+  CommunityRepo({required this.baseUrl});
 
   Future<FamilySummary> fetchFamilySummary() async {
-    final uri = Uri.parse('$baseUrl/api/community/family');
-    final res = await _get(uri);
+    final res = await getJson('$baseUrl/api/community/family');
+
+    if (res.statusCode == 404 || res.statusCode == 500) {
+      throw NoFamilyJoinedError();
+    }
+
     if (res.statusCode != 200) {
       throw Exception('summary ${res.statusCode}: ${res.body}');
     }
-    final json = jsonDecode(res.body) as Map<String, dynamic>;
-    return FamilySummary.fromJson(json);
+
+    final jsonMap = jsonDecode(res.body) as Map<String, dynamic>;
+    return FamilySummary.fromJson(jsonMap);
   }
 
   Future<PageResponse<FeedItem>> fetchFeed({
@@ -163,23 +140,30 @@ class CommunityRepo {
         'sort': 'date,desc',
       },
     );
-
-    final res = await _get(uri);
+    final res = await getJson(uri.toString());
     if (res.statusCode != 200) {
       throw Exception('photos ${res.statusCode}: ${res.body}');
     }
-    final json = jsonDecode(res.body) as Map<String, dynamic>;
-    final items = (json['content'] as List)
+    final jsonMap = jsonDecode(res.body) as Map<String, dynamic>;
+    final items = (jsonMap['content'] as List)
         .map((e) => FeedItem.fromJson(e as Map<String, dynamic>))
         .toList();
 
     return PageResponse<FeedItem>(
       content: items,
-      page: json['page'] as int,
-      size: json['size'] as int,
-      totalElements: (json['totalElements'] as num).toInt(),
-      totalPages: json['totalPages'] as int,
+      page: jsonMap['page'] as int,
+      size: jsonMap['size'] as int,
+      totalElements: (jsonMap['totalElements'] as num).toInt(),
+      totalPages: jsonMap['totalPages'] as int,
     );
+  }
+
+  Future<List<int>> fetchBlockedUserIds() async {
+    final res = await getJson('$baseUrl/api/community/blocks');
+    if (res.statusCode != 200) {
+      throw Exception('blocks ${res.statusCode}: ${res.body}');
+    }
+    return (jsonDecode(res.body) as List).cast<int>();
   }
 }
 
@@ -192,7 +176,7 @@ class CommunityTab extends StatefulWidget {
 
 class _CommunityTabState extends State<CommunityTab>
     with AutomaticKeepAliveClientMixin {
-  late final CommunityRepo _repo = CommunityRepo(baseUrl: kBaseUrl);
+  late final CommunityRepo _repo = CommunityRepo(baseUrl: baseUrl);
   final _scroll = ScrollController();
 
   FamilySummary? _summary;
@@ -204,6 +188,12 @@ class _CommunityTabState extends State<CommunityTab>
   final int _size = 30;
   int? _selectedMemberId;
   int? _myMemberId;
+
+  // 가족 미소속 플래그
+  bool _noFamily = false;
+
+  // 차단된 사용자 id들
+  Set<int> _blockedUserIds = {};
 
   @override
   bool get wantKeepAlive => true;
@@ -229,17 +219,32 @@ class _CommunityTabState extends State<CommunityTab>
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _noFamily = false;
+    });
     try {
       final s = await _repo.fetchFamilySummary();
       _summary = s;
       _myMemberId = s.myMemberId;
+
+      // 차단 목록
+      final blocked = await _repo.fetchBlockedUserIds();
+      _blockedUserIds = blocked.toSet();
+
       _page = 0;
       _hasMore = true;
       _feed.clear();
       await _fetchPage(reset: true);
       if (!mounted) return;
       setState(() {});
+    } on NoFamilyJoinedError {
+      if (!mounted) return;
+      setState(() {
+        _noFamily = true;
+        _summary = null;
+        _feed = [];
+      });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -259,12 +264,18 @@ class _CommunityTabState extends State<CommunityTab>
         size: _size,
         memberId: _selectedMemberId,
       );
+
+      // 차단된 작성자 글 제외
+      final filtered = pageRes.content
+          .where((it) => !_blockedUserIds.contains(it.authorId))
+          .toList();
+
       if (!mounted) return;
       setState(() {
         if (reset) {
-          _feed = pageRes.content;
+          _feed = filtered;
         } else {
-          _feed.addAll(pageRes.content);
+          _feed.addAll(filtered);
         }
         _hasMore = _page + 1 < pageRes.totalPages;
         if (_hasMore) _page += 1;
@@ -314,6 +325,20 @@ class _CommunityTabState extends State<CommunityTab>
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
+
+    // 가족 미소속 전용 뷰
+    if (_noFamily) {
+      return RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          children: const [
+            SizedBox(height: 120),
+            _NoFamilyView(),
+          ],
+        ),
+      );
+    }
+
     final s = _summary!;
     final feed = _feed;
 
@@ -327,8 +352,7 @@ class _CommunityTabState extends State<CommunityTab>
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: _FamilyHeader(
                 familyName: s.familyName,
-                subtitle:
-                '가족 ${s.memberCount}명 · 이번 달 사진 ${s.monthlyPosts}장',
+                subtitle: '가족 ${s.memberCount}명 · 이번 달 사진 ${s.monthlyPosts}장',
                 onCompose: _goCreate,
               ),
             ),
@@ -355,23 +379,22 @@ class _CommunityTabState extends State<CommunityTab>
                   final item = feed[index];
                   final member = s.members.firstWhere(
                         (m) => m.id == item.authorId,
-                    orElse: () => FamilyMember(
-                      id: item.authorId,
-                      name: '알수없음',
-                    ),
+                    orElse: () =>
+                        FamilyMember(id: item.authorId, name: '알수없음'),
                   );
                   return InkWell(
                     borderRadius: BorderRadius.circular(8),
                     onTap: () async {
                       final args = CommunityDetailArgs(
                         postId: item.id.toString(),
+                        authorId: item.authorId, // 차단 시 필요
                         authorName: member.name,
                         authorAvatarUrl: member.avatarUrl,
                         createdAt: item.date,
                         imageUrls: [item.imageUrl],
                         content: item.comment ?? '',
-                        isMine: _myMemberId != null &&
-                            item.authorId == _myMemberId,
+                        isMine:
+                        _myMemberId != null && item.authorId == _myMemberId,
                       );
 
                       final result = await Navigator.push(
@@ -388,10 +411,10 @@ class _CommunityTabState extends State<CommunityTab>
                             _feed.removeWhere(
                                     (it) => it.id.toString() == result['postId']);
                           });
-                        }
-                        else if (result['updated'] == true) {
+                        } else if (result['updated'] == true) {
                           final idx = _feed.indexWhere((it) =>
-                          it.id.toString() == (result['postId'] as String));
+                          it.id.toString() ==
+                              (result['postId'] as String));
                           if (idx != -1) {
                             final old = _feed[idx];
                             final newImageUrl =
@@ -403,16 +426,16 @@ class _CommunityTabState extends State<CommunityTab>
                               id: old.id,
                               authorId: old.authorId,
                               date: old.date,
-                              imageUrl:
-                              (newImageUrl != null && newImageUrl.isNotEmpty)
+                              imageUrl: (newImageUrl != null &&
+                                  newImageUrl.isNotEmpty)
                                   ? newImageUrl
                                   : old.imageUrl,
                               thumbnailUrl: (newImageUrl != null &&
                                   newImageUrl.isNotEmpty)
                                   ? newImageUrl
                                   : old.thumbnailUrl,
-                              comment:
-                              (newContent != null && newContent.isNotEmpty)
+                              comment: (newContent != null &&
+                                  newContent.isNotEmpty)
                                   ? newContent
                                   : old.comment,
                             );
@@ -421,6 +444,14 @@ class _CommunityTabState extends State<CommunityTab>
                               _feed[idx] = updated;
                             });
                           }
+                        } else if (result['blockedMemberId'] != null) {
+                          final int blockedId =
+                          result['blockedMemberId'] as int;
+                          setState(() {
+                            _blockedUserIds.add(blockedId); // 이후 로드도 제외
+                            _feed.removeWhere(
+                                    (it) => it.authorId == blockedId); // 즉시 숨김
+                          });
                         }
                       }
                     },
@@ -462,6 +493,33 @@ class _CommunityTabState extends State<CommunityTab>
   }
 }
 
+/// 가족 미소속 전용 뷰 (가벼운 빈 상태 화면)
+class _NoFamilyView extends StatelessWidget {
+  const _NoFamilyView();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7);
+    return Center(
+      child: Column(
+        children: [
+          const Icon(Icons.group_off_outlined, size: 56, color: Colors.black38),
+          const SizedBox(height: 10),
+          const Text(
+            '소속된 가족이 없습니다.',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '가족 그룹을 생성하거나 초대 코드를 입력해 참여해 주세요.',
+            style: TextStyle(fontSize: 13, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _FamilyHeader extends StatelessWidget {
   const _FamilyHeader({
     required this.familyName,
@@ -492,8 +550,8 @@ class _FamilyHeader extends StatelessWidget {
               children: [
                 Text(
                   familyName,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w700),
+                  style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -510,12 +568,11 @@ class _FamilyHeader extends StatelessWidget {
               ],
             ),
           ),
-          // NOTE: IconButton을 동그란 FloatingActionButton.small로 교체했습니다.
           FloatingActionButton.small(
             onPressed: onCompose,
-            heroTag: 'headerComposeButton', // heroTag는 화면 내에서 고유해야 합니다.
-            backgroundColor: Colors.green, // 초록색 배경
-            foregroundColor: Colors.white, // 아이콘은 흰색
+            heroTag: 'headerComposeButton',
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
             elevation: 1,
             child: const Icon(Icons.edit, size: 22),
           ),
@@ -585,16 +642,14 @@ class _MemberChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? Colors.green.shade50 : Colors.white; // 배경을 완전한 흰색으로
-    final border = selected ? Colors.green : Colors.grey.shade200; // 테두리는 아주 연한 회색으로
+    final bg = selected ? Colors.green.shade50 : Colors.white;
+    final border = selected ? Colors.green : Colors.grey.shade200;
     final textColor = selected ? Colors.green.shade700 : Colors.black87;
 
     Widget avatar = CircleAvatar(
       radius: 18,
       backgroundColor: Colors.white,
-      child: icon != null
-          ? Icon(icon, size: 18, color: Colors.grey.shade700)
-          : null,
+      child: icon != null ? Icon(icon, size: 18, color: Colors.grey.shade700) : null,
     );
 
     if (icon == null && (avatarUrl ?? '').isNotEmpty) {
