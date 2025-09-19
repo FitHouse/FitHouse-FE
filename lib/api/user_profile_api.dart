@@ -2,14 +2,12 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_profile.dart';
+import '../api/http_client.dart' show baseUrl;
 
 class UserProfileApi {
-  UserProfileApi({http.Client? client})
-      : _client = client ?? http.Client();
+  UserProfileApi({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
-
-  static const String _baseUrl = 'http://marketalert.iptime.org:8080';
 
   Future<UserProfile> fetchMe() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -19,7 +17,7 @@ class UserProfileApi {
     final idToken = await user.getIdToken();
 
     final res = await _client.get(
-      Uri.parse('$_baseUrl/api/users/me'),
+      Uri.parse('$baseUrl/api/users/me'),
       headers: {
         'Authorization': 'Bearer $idToken',
         'Accept': 'application/json',
@@ -42,7 +40,7 @@ class UserProfileApi {
     final idToken = await user.getIdToken();
 
     final res = await _client.patch(
-      Uri.parse('$_baseUrl/api/users/me'),
+      Uri.parse('$baseUrl/api/users/me'),
       headers: {
         'Authorization': 'Bearer $idToken',
         'Content-Type': 'application/json',
@@ -64,10 +62,10 @@ class UserProfileApi {
     }
     final idToken = await user.getIdToken();
 
-    final uri = Uri.parse('$_baseUrl/api/users/me/profile-image');
-    var request = http.MultipartRequest('PATCH', uri);
-    request.headers['Authorization'] = 'Bearer $idToken';
-    request.files.add(await http.MultipartFile.fromPath('file', filePath));
+    final uri = Uri.parse('$baseUrl/api/users/me/profile-image');
+    final request = http.MultipartRequest('PATCH', uri)
+      ..headers['Authorization'] = 'Bearer $idToken'
+      ..files.add(await http.MultipartFile.fromPath('file', filePath));
 
     final res = await request.send();
     final responseBody = await res.stream.bytesToString();
@@ -86,7 +84,7 @@ class UserProfileApi {
     final idToken = await user.getIdToken();
 
     final res = await _client.delete(
-      Uri.parse('$_baseUrl/api/users/me/profile-image'),
+      Uri.parse('$baseUrl/api/users/me/profile-image'),
       headers: {
         'Authorization': 'Bearer $idToken',
       },
@@ -105,7 +103,7 @@ class UserProfileApi {
     final idToken = await user.getIdToken();
 
     final res = await _client.delete(
-      Uri.parse('$_baseUrl/api/users/me/family'),
+      Uri.parse('$baseUrl/api/users/me/family'),
       headers: {
         'Authorization': 'Bearer $idToken',
         'Accept': 'application/json',
@@ -130,7 +128,7 @@ class UserProfileApi {
 
     final idToken = await user.getIdToken();
     final res = await _client.delete(
-      Uri.parse('$_baseUrl/api/users/me'),
+      Uri.parse('$baseUrl/api/users/me'),
       headers: {
         'Authorization': 'Bearer $idToken',
         'Content-Type': 'application/json',

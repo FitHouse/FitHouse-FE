@@ -5,32 +5,21 @@ import 'package:flutter/services.dart';
 import 'package:fithouse/models/family_steps.dart';
 import 'package:fithouse/screens/widgets/family_steps_widget.dart';
 // import 'package:fithouse/screens/widgets/family_progress_card.dart';
+import 'package:fithouse/api/http_client.dart' show baseUrl, httpClient, authHeaders;
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 
-const String kBaseUrl = 'http://marketalert.iptime.org:8080';
 
 class StepCounterRepo {
-  final String baseUrl;
-  final http.Client _client;
-  StepCounterRepo({required this.baseUrl, http.Client? client})
-      : _client = client ?? http.Client();
+  const StepCounterRepo();
 
-  Future<Map<String, String>> _authHeaders({bool forceRefresh = false}) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception('로그인이 필요합니다.');
-    final idToken = await user.getIdToken(forceRefresh);
-    return {
-      'Authorization': 'Bearer $idToken',
-      'Accept': 'application/json',
-    };
-  }
-
-  Future<List<FamilySteps>> fetchFamilySteps(int familyId,
-      {String range = 'today'}) async {
+  Future<List<FamilySteps>> fetchFamilySteps(
+      int familyId, {
+        String range = 'today',
+      }) async {
     final uri = Uri.parse('$baseUrl/api/families/$familyId/steps/summary')
         .replace(queryParameters: {'range': range});
-    final res = await _client.get(uri, headers: await _authHeaders());
+    final res = await httpClient.get(uri, headers: await authHeaders());
     if (res.statusCode != 200) {
       throw Exception('/families steps summary ${res.statusCode}: ${res.body}');
     }
@@ -42,8 +31,6 @@ class StepCounterRepo {
     }
     return [];
   }
-
-  Future<Map<String, String>> authHeaders() => _authHeaders();
 }
 
 class FamilyMember {
@@ -79,26 +66,11 @@ class FamilySummary {
 }
 
 class CommunityRepo {
-  final String baseUrl;
-  final http.Client _client;
-  CommunityRepo({required this.baseUrl, http.Client? client})
-      : _client = client ?? http.Client();
-
-  Future<Map<String, String>> _authHeaders({bool forceRefresh = false}) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      throw Exception('로그인이 필요합니다.');
-    }
-    final idToken = await user.getIdToken(forceRefresh);
-    return {
-      'Authorization': 'Bearer $idToken',
-      'Accept': 'application/json',
-    };
-  }
+  const CommunityRepo();
 
   Future<FamilySummary> fetchFamilySummary() async {
     final uri = Uri.parse('$baseUrl/api/community/family');
-    final res = await _client.get(uri, headers: await _authHeaders());
+    final res = await httpClient.get(uri, headers: await authHeaders());
     if (res.statusCode != 200) {
       throw Exception('summary ${res.statusCode}: ${res.body}');
     }
@@ -116,8 +88,10 @@ class StepCounterScreen extends StatefulWidget {
 
 class _StepCounterScreenState extends State<StepCounterScreen>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
-  late final StepCounterRepo _repo = StepCounterRepo(baseUrl: kBaseUrl);
-  late final CommunityRepo _communityRepo = CommunityRepo(baseUrl: kBaseUrl);
+  static const _eventChannel = EventChannel('step_counter/events');
+
+  final StepCounterRepo _repo = const StepCounterRepo();
+  final CommunityRepo _communityRepo = const CommunityRepo();
 
   int? _myUserId;
   int? _myFamilyId;
@@ -128,7 +102,6 @@ class _StepCounterScreenState extends State<StepCounterScreen>
 
   FamilyStepsSummary? _familySummary; // 주간 요약 저장용
 
-  static const _eventChannel = EventChannel('step_counter/events');
   StreamSubscription? _sub;
   Timer? _tick;
   Timer? _midnightTimer;
@@ -144,6 +117,7 @@ class _StepCounterScreenState extends State<StepCounterScreen>
 
   bool _hasFlushedThisCycle = false;
   DateTime? _lastFetchedDate;
+  bool _loading = true;
 
   @override
   bool get wantKeepAlive => true;
@@ -204,9 +178,11 @@ class _StepCounterScreenState extends State<StepCounterScreen>
   }
 
   Future<void> _loadAll() async {
+    setState(() => _loading = true);
     try {
       final summary = await _communityRepo.fetchFamilySummary();
       _myFamilyId = summary.familyId;
+
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser != null) {
         final me = summary.members.firstWhere(
@@ -215,21 +191,28 @@ class _StepCounterScreenState extends State<StepCounterScreen>
         );
         _myUserId = me.id;
       }
+
       await _fetchSteps();
-      _lastFetchedDate = DateTime.now();
     } catch (e) {
       debugPrint("❌ 초기 데이터 불러오기 실패: $e");
+      setState(() {
+        _family = [];
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _fetchSteps() async {
-    if (_myFamilyId == null) return;
+    if (_myFamilyId == null) {
+      setState(() => _family = []);
+      return;
+    }
     try {
-      final uri = Uri.parse('$kBaseUrl/api/families/$_myFamilyId/steps/summary')
+      final uri = Uri.parse('$baseUrl/api/families/$_myFamilyId/steps/summary')
           .replace(queryParameters: {'range': 'week'});
-      final headers = await _repo.authHeaders();
-      final res = await http.get(uri, headers: headers);
 
+      final res = await httpClient.get(uri, headers: await authHeaders());
       if (res.statusCode != 200) {
         throw Exception("summary fetch failed: ${res.body}");
       }
@@ -240,30 +223,49 @@ class _StepCounterScreenState extends State<StepCounterScreen>
       final todayList =
       await _repo.fetchFamilySteps(_myFamilyId!, range: 'today');
 
-      final meToday = todayList.firstWhere(
+      if (todayList.isEmpty) {
+        setState(() {
+          _familySummary = summary;
+          _family = [];
+          todaySteps = 0;
+          _startServerSteps = 0;
+        });
+        return;
+      }
+
+      final meToday = _myUserId == null
+          ? todayList.first
+          : (todayList.firstWhere(
             (f) => f.userId == _myUserId,
         orElse: () => todayList.first,
-      );
+      ));
 
       _startServerSteps = meToday.today;
 
       setState(() {
-        _familySummary = summary; //  저장
+        _familySummary = summary;
         _family = todayList;
         todaySteps = meToday.today;
 
-        final meWeekly = summary.members
-            .firstWhere((m) => m.userId == _myUserId,
-            orElse: () => summary.members.first)
-            .weekly;
+        if (_myUserId != null && summary.members.isNotEmpty) {
+          final meWeekly = summary.members
+              .firstWhere(
+                (m) => m.userId == _myUserId,
+            orElse: () => summary.members.first,
+          )
+              .weekly;
 
-        final idx = _family.indexWhere((f) => f.userId == _myUserId);
-        if (idx != -1) {
-          _family[idx] = _family[idx].copyWith(weekly: meWeekly);
+          final idx = _family.indexWhere((f) => f.userId == _myUserId);
+          if (idx != -1) {
+            _family[idx] = _family[idx].copyWith(weekly: meWeekly);
+          }
         }
       });
     } catch (e) {
       debugPrint("걸음 수 불러오기 실패: $e");
+      setState(() {
+        _family = [];
+      });
     }
   }
 
@@ -313,26 +315,22 @@ class _StepCounterScreenState extends State<StepCounterScreen>
     }
 
     try {
-      final headers = await _repo.authHeaders();
       final body = jsonEncode({
         'steps': adjustedSteps,
         'clientAt': now.toIso8601String(),
       });
 
-      final uri = Uri.parse('$kBaseUrl/api/steps/today');
-      debugPrint("PUT $uri steps=$adjustedSteps");
+      final uri = Uri.parse('$baseUrl/api/steps/today');
 
-      final res = await http.put(
+      final res = await httpClient.put(
         uri,
         headers: {
-          ...headers,
+          ...await authHeaders(),
           'Content-Type': 'application/json',
-          'X-User-Id': _myUserId.toString(),
+          if (_myUserId != null) 'X-User-Id': _myUserId.toString(),
         },
         body: body,
       );
-
-      debugPrint("Response ${res.statusCode}: ${res.body}");
 
       if (res.statusCode == 200) {
         _lastSent = adjustedSteps;
@@ -374,6 +372,24 @@ class _StepCounterScreenState extends State<StepCounterScreen>
   Widget build(BuildContext context) {
     super.build(context);
 
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (_family.isEmpty) {
+      return Scaffold(
+        body: RefreshIndicator(
+          onRefresh: _loadAll,
+          child: ListView(
+            children: const [
+              SizedBox(height: 120),
+              _NoFamilyView(),
+            ],
+          ),
+        ),
+      );
+    }
+
     final familyCount = _family.isNotEmpty ? _family.length : 1;
     final weeklyGoal = _myGoal * familyCount * 7;
 
@@ -413,6 +429,33 @@ class _StepCounterScreenState extends State<StepCounterScreen>
               goal: _myGoal,
               myUserId: _myUserId,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoFamilyView extends StatelessWidget {
+  const _NoFamilyView();
+
+  @override
+  Widget build(BuildContext context) {
+    final subColor =
+    Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7);
+    return Center(
+      child: Column(
+        children: [
+          const Icon(Icons.group_off_outlined, size: 56, color: Colors.black38),
+          const SizedBox(height: 10),
+          const Text(
+            '소속된 가족이 없습니다.',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '가족 그룹을 생성하거나 초대 코드를 입력해 참여해 주세요.',
+            style: TextStyle(fontSize: 13, color: subColor),
           ),
         ],
       ),
