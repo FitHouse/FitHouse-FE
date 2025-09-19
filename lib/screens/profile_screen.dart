@@ -67,9 +67,11 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
 
   // 가족 일일 기록 데이터를 불러오는 비동기 함수
   Future<void> _loadFamily() async {
+    setState(() => _loading = true);
     try {
       final uri = Uri.parse('$baseUrl/family/daily-records');
       final res = await httpClient.get(uri, headers: await authHeaders());
+
       if (res.statusCode == 200) {
         final List data = jsonDecode(res.body);
         setState(() {
@@ -77,11 +79,17 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
           _loading = false;
         });
       } else {
-        throw Exception('가족 기록 불러오기 실패');
+        // 가족 없음(404)이나 서버에러(500)도 같은 빈 상태로 처리
+        setState(() {
+          _family = [];     // <- 빈 리스트로 전환
+          _loading = false; // <- 로딩 종료
+        });
       }
     } catch (e) {
-      debugPrint('Error: $e');
-      setState(() => _loading = false);
+      setState(() {
+        _family = [];      // <- 빈 리스트로 전환
+        _loading = false;  // <- 로딩 종료
+      });
     }
   }
 
@@ -98,14 +106,23 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
-    _loadFamily(); // 화면이 빌드 될때마다 가족 데이터 새로 고침
     final theme = Theme.of(context);
 
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (_family.isEmpty) {
-      return const Scaffold(body: Center(child: Text('데이터 없음')));
+      return Scaffold(
+        body: RefreshIndicator(
+          onRefresh: _loadFamily,
+          child: ListView(
+            children: const [
+              SizedBox(height: 120),
+              _NoFamilyView(),
+            ],
+          ),
+        ),
+      );
     }
 
     final me = _family.first; // 첫 번째 멤버를 본인으로 간주
@@ -173,6 +190,8 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                               MaterialPageRoute(
                                   builder: (_) => const RecordScreen()),
                             );
+                            if (!mounted) return;
+                            _loadFamily();
                           },
                           icon: const Icon(Icons.fitness_center), // 피트니스 아이콘
                           label: const Text('내 기록'),
@@ -211,6 +230,33 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
     );
   }
 }
+
+class _NoFamilyView extends StatelessWidget {
+  const _NoFamilyView();
+
+  @override
+  Widget build(BuildContext context) {
+    final subColor = Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7);
+    return Center(
+      child: Column(
+        children: [
+          const Icon(Icons.group_off_outlined, size: 56, color: Colors.black38),
+          const SizedBox(height: 10),
+          const Text(
+            '소속된 가족이 없습니다.',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '가족 그룹을 생성하거나 초대 코드를 입력해 참여해 주세요.',
+            style: TextStyle(fontSize: 13, color: subColor),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 // 가족 구성원 타일 위젯
 class _FamilyTile extends StatelessWidget {
@@ -316,33 +362,78 @@ class _FamilyTile extends StatelessWidget {
 }
 
 // 범례 위젯
-class _Legend extends StatelessWidget {
+class _Legend extends StatefulWidget {
   final List<RingSegment> segments;
   const _Legend({required this.segments});
 
   @override
+  State<_Legend> createState() => _LegendState();
+}
+
+class _LegendState extends State<_Legend> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: -6,
-      children: segments
-          .map(
-            (s) => Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 10,
-              height: 10,
-              decoration:
-              BoxDecoration(color: s.color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 4),
-            Text('${s.label} ${s.minutes}분',
-                style: const TextStyle(fontSize: 12)),
-          ],
+    // 내림차순 정렬(많이 한 운동 먼저)
+    final sorted = [...widget.segments]
+      ..sort((a, b) => b.minutes.compareTo(a.minutes));
+
+    // 접기 상태에서는 2개만
+    final visible = _expanded ? sorted : sorted.take(2).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: visible.map((s) {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 10, height: 10,
+                  decoration: BoxDecoration(color: s.color, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 4),
+                Text('${s.label} ${s.minutes}분',
+                    style: const TextStyle(fontSize: 12)),
+              ],
+            );
+          }).toList(),
         ),
-      )
-          .toList(),
+
+        // 항목이 2개 초과일 때만 토글 표시
+        if (sorted.length > 2) ...[
+          const SizedBox(height: 6),
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _expanded ? '접기' : '더보기',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.green.shade700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    size: 16, color: Colors.green,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
