@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fithouse/models/family_steps.dart';
 import 'package:fithouse/screens/widgets/family_steps_widget.dart';
-import 'package:fithouse/screens/widgets/family_progress_card.dart';
+// import 'package:fithouse/screens/widgets/family_progress_card.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -397,14 +397,15 @@ class _StepCounterScreenState extends State<StepCounterScreen>
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          FamilyProgressCard(
-            steppedWeeklyProgress: steppedWeeklyProgress,
-            levelImage: levelImage,
-            weeklySteps: weeklySteps,
-            weeklyGoal: weeklyGoal,
-            totalTodaySteps: totalTodaySteps,
-            todayGoalWithFamily: todayGoalWithFamily,
-          ),
+          // 주간 진행률 박스 주석 처리
+          // FamilyProgressCard(
+          //   steppedWeeklyProgress: steppedWeeklyProgress,
+          //   levelImage: levelImage,
+          //   weeklySteps: weeklySteps,
+          //   weeklyGoal: weeklyGoal,
+          //   totalTodaySteps: totalTodaySteps,
+          //   todayGoalWithFamily: todayGoalWithFamily,
+          // ),
           Expanded(
             child: FamilyStepsWidget(
               members: _family,
