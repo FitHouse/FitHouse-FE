@@ -14,12 +14,18 @@ import 'package:fithouse/util/legal_docs_loader.dart';
 extension RoleKo on Role {
   String get ko {
     switch (this) {
-      case Role.GRANDMA:  return '할머니';
-      case Role.GRANDPA:  return '할아버지';
-      case Role.MOM:      return '엄마';
-      case Role.DAD:      return '아빠';
-      case Role.DAUGHTER: return '딸';
-      case Role.SON:      return '아들';
+      case Role.GRANDMA:
+        return '할머니';
+      case Role.GRANDPA:
+        return '할아버지';
+      case Role.MOM:
+        return '엄마';
+      case Role.DAD:
+        return '아빠';
+      case Role.DAUGHTER:
+        return '딸';
+      case Role.SON:
+        return '아들';
     }
   }
 }
@@ -27,8 +33,10 @@ extension RoleKo on Role {
 extension GenderKo on Gender {
   String get ko {
     switch (this) {
-      case Gender.MALE:   return '남성';
-      case Gender.FEMALE: return '여성';
+      case Gender.MALE:
+        return '남성';
+      case Gender.FEMALE:
+        return '여성';
     }
   }
 }
@@ -54,6 +62,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
   final _name = TextEditingController();
   final _height = TextEditingController();
   final _weight = TextEditingController();
+  final _birthdateController = TextEditingController();
 
   Gender? _gender;
   DateTime? _birthdate;
@@ -64,13 +73,32 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
   bool _showPw2 = false;
   bool _loading = false;
   bool _termsAgreed = false;
+  bool _ageConfirmed = false;
   String? _error;
 
   final List<Role> _roleOptions = [
-    Role.GRANDMA, Role.GRANDPA, Role.MOM, Role.DAD,
-    Role.DAUGHTER, Role.SON
+    Role.GRANDMA,
+    Role.GRANDPA,
+    Role.MOM,
+    Role.DAD,
+    Role.DAUGHTER,
+    Role.SON
   ];
   final List<Gender> _genderOptions = [Gender.MALE, Gender.FEMALE];
+
+  int _ageFrom(DateTime dob) {
+    final now = DateTime.now();
+    int age = now.year - dob.year;
+    if (now.month < dob.month || (now.month == dob.month && now.day < dob.day)) {
+      age--;
+    }
+    return age;
+  }
+
+  DateTime get _latestAllowedBirthdate {
+    final now = DateTime.now();
+    return DateTime(now.year - 14, now.month, now.day);
+  }
 
   @override
   void dispose() {
@@ -81,6 +109,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
     _name.dispose();
     _height.dispose();
     _weight.dispose();
+    _birthdateController.dispose();
     super.dispose();
   }
 
@@ -106,7 +135,8 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
     final s = v?.trim() ?? '';
     if (s.isEmpty) return '닉네임을 입력하세요';
     if (s.length < 2) return '닉네임은 2자 이상';
-    final ok = RegExp(r'^[a-zA-Z0-9\u1100-\u11FF\u3130-\u318F\uAC00-\uD7A3._-]+$').hasMatch(s);
+    final ok = RegExp(r'^[a-zA-Z0-9\u1100-\u11FF\u3130-\u318F\uAC00-\uD7A3._-]+$')
+        .hasMatch(s);
     if (!ok) return '영문/한글/숫자/._-만 사용 가능';
     return null;
   }
@@ -162,7 +192,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
   Future<void> _next() async {
     switch (_step) {
       case 0:
-        if (!_termsAgreed) return;
+        if (!(_termsAgreed && _ageConfirmed)) return;
         break;
       case 1:
         if (!(_formEmail.currentState?.validate() ?? false)) return;
@@ -184,6 +214,11 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
           setState(() => _error = '역할을 선택해주세요.');
           return;
         }
+        if (_ageFrom(_birthdate!) < 14) {
+          setState(() => _error = '만 14세 미만은 가입할 수 없습니다.');
+          return;
+        }
+
         await _submit();
         return;
     }
@@ -263,7 +298,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
             (route) => false,
         arguments: {'prefillEmail': email},
       );
-
     } on FirebaseAuthException catch (e) {
       setState(() => _error = _humanizeAuthError(e));
     } catch (e) {
@@ -276,9 +310,9 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
   Future<void> _pickBirthdateWithDialog() async {
     final init = _birthdate ?? DateTime(DateTime.now().year - 20, 1, 1);
     final firstDate = DateTime(1900, 1, 1);
-    final lastDate  = DateTime.now();
+    final lastDate = _latestAllowedBirthdate;
 
-    DateTime temp = init;
+    DateTime temp = init.isAfter(lastDate) ? lastDate : init;
 
     final result = await showDialog<String>(
       context: context,
@@ -289,12 +323,12 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
           clipBehavior: Clip.antiAlias,
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
-
-          insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+          insetPadding:
+          const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
           contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
           actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-
-          title: const Text('생년월일 선택', style: TextStyle(fontWeight: FontWeight.w700)),
+          title: const Text('생년월일 선택',
+              style: TextStyle(fontWeight: FontWeight.w700)),
           content: SizedBox(
             width: double.maxFinite,
             height: 370,
@@ -327,9 +361,11 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                   backgroundColor: buttonGreen,
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
-                child: const Text('확인', style: TextStyle(fontWeight: FontWeight.w600)),
+                child: const Text('확인',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
               ),
             ),
           ],
@@ -338,12 +374,19 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
     );
 
     if (result != null && result.isNotEmpty) {
-      setState(() => _birthdate = DateTime.tryParse(result));
+      final picked = DateTime.tryParse(result);
+      if (picked != null) {
+        if (picked.isAfter(_latestAllowedBirthdate)) {
+          setState(() => _error = '만 14세 미만은 가입할 수 없습니다.');
+          return;
+        }
+        setState(() {
+          _birthdate = picked;
+          _birthdateController.text = DateFormat('yyyy-MM-dd').format(picked);
+        });
+      }
     }
   }
-
-
-
 
   // 약관/개인정보 팝업
   Future<void> _openDocDialog({
@@ -357,13 +400,11 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
-
         clipBehavior: Clip.antiAlias,
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
-
-        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-
+        insetPadding:
+        const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
         title: Text(
           title,
           style: const TextStyle(fontWeight: FontWeight.w700),
@@ -375,10 +416,12 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
             future: loader,
             builder: (context, snap) {
               if (snap.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+                return const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2));
               }
               if (snap.hasError) {
-                return Center(child: Text('문서를 불러오지 못했습니다: ${snap.error}'));
+                return Center(
+                    child: Text('문서를 불러오지 못했습니다: ${snap.error}'));
               }
               final text = snap.data ?? '';
               return Scrollbar(
@@ -404,9 +447,11 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                 backgroundColor: buttonGreen,
                 foregroundColor: Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
-              child: const Text('확인', style: TextStyle(fontWeight: FontWeight.w600)),
+              child: const Text('확인',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -441,28 +486,33 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.privacy_tip_outlined, size: 72, color: Colors.grey),
+              const Icon(Icons.privacy_tip_outlined,
+                  size: 72, color: Colors.grey),
               const SizedBox(height: 12),
               const Text(
                 '서비스 이용을 위해 아래 약관을 확인해주세요.',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style:
+                TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-
               Card(
                 elevation: 0,
                 color: const Color(0xFFF8F9FB),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 12),
                   child: Column(
                     children: [
                       ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('이용약관', style: TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: const Text('서비스 이용에 관한 기본 약관', style: TextStyle(color: Colors.grey)),
+                        title: const Text('이용약관',
+                            style: TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: const Text('서비스 이용에 관한 기본 약관',
+                            style: TextStyle(color: Colors.grey)),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => _openDocDialog(
                           title: '이용약관',
@@ -473,8 +523,10 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                       ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('개인정보 처리방침', style: TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: const Text('개인정보 수집 및 이용에 대한 안내', style: TextStyle(color: Colors.grey)),
+                        title: const Text('개인정보 처리방침',
+                            style: TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: const Text('개인정보 수집 및 이용에 대한 안내',
+                            style: TextStyle(color: Colors.grey)),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => _openDocDialog(
                           title: '개인정보처리방침',
@@ -485,17 +537,34 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 8),
-
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,
                 value: _termsAgreed,
-                onChanged: (v) => setState(() => _termsAgreed = v ?? false),
+                onChanged: (v) =>
+                    setState(() => _termsAgreed = v ?? false),
                 title: const Text(
                   '위 약관 및 개인정보 처리방침에 동의합니다.',
                   style: TextStyle(fontSize: 14),
+                ),
+                activeColor: buttonGreen,
+                checkColor: Colors.white,
+                side: BorderSide(color: buttonGreen),
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                value: _ageConfirmed,
+                onChanged: (v) =>
+                    setState(() => _ageConfirmed = v ?? false),
+                title: const Text(
+                  '만 14세 이상입니다.',
+                  style: TextStyle(fontSize: 14),
+                ),
+                subtitle: const Text(
+                  '만 14세 미만은 가입할 수 없습니다.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
                 activeColor: buttonGreen,
                 checkColor: Colors.white,
@@ -528,7 +597,8 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
               labelText: '이메일 주소',
               labelStyle: const TextStyle(color: Color(0xFF4B4B4B)),
               floatingLabelStyle: TextStyle(color: buttonGreen),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border:
+              OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide(color: buttonGreen),
@@ -554,7 +624,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 16),
-
           // 비밀번호
           TextFormField(
             controller: _pw,
@@ -564,7 +633,8 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
               labelText: '비밀번호 (6자 이상)',
               labelStyle: const TextStyle(color: Color(0xFF4B4B4B)),
               floatingLabelStyle: TextStyle(color: buttonGreen),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border:
+              OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide(color: buttonGreen),
@@ -581,9 +651,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
             validator: _validatePw,
             onFieldSubmitted: (_) => _next(),
           ),
-
           const SizedBox(height: 12),
-
           // 비밀번호 확인
           TextFormField(
             controller: _pw2,
@@ -593,7 +661,8 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
               labelText: '비밀번호 확인',
               labelStyle: const TextStyle(color: Color(0xFF4B4B4B)),
               floatingLabelStyle: TextStyle(color: buttonGreen),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border:
+              OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide(color: buttonGreen),
@@ -610,10 +679,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
             validator: _validatePw2,
             onFieldSubmitted: (_) => _next(),
           ),
-
           const SizedBox(height: 8),
-
-          // 안내 문구
           Text(
             '• 영문/숫자 조합 권장',
             style: TextStyle(color: Colors.grey.shade600),
@@ -672,7 +738,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
               ),
             ),
             const SizedBox(height: 24),
-
             // 닉네임
             TextFormField(
               controller: _name,
@@ -683,7 +748,8 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                 counterText: '',
                 labelStyle: const TextStyle(color: Color(0xFF4B4B4B)),
                 floatingLabelStyle: TextStyle(color: buttonGreen),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(color: buttonGreen),
@@ -691,7 +757,8 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
               ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(
-                  RegExp(r'[a-zA-Z0-9\u1100-\u11FF\u3130-\u318F\uAC00-\uD7A3._-]'),
+                  RegExp(
+                      r'[a-zA-Z0-9\u1100-\u11FF\u3130-\u318F\uAC00-\uD7A3._-]'),
                 ),
                 LengthLimitingTextInputFormatter(30),
               ],
@@ -700,7 +767,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
               onChanged: (_) => setState(() {}),
               validator: _validateName,
             ),
-
             const SizedBox(height: 6),
             Row(
               children: [
@@ -719,9 +785,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                 ),
               ],
             ),
-
             const SizedBox(height: 16),
-
             // 역할
             InputDecorator(
               decoration: InputDecoration(
@@ -737,7 +801,8 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                   isExpanded: true,
                   hint: const Text('역할을 선택하세요'),
                   onChanged: (Role? v) => setState(() => _role = v),
-                  items: _roleOptions.map<DropdownMenuItem<Role>>((Role value) {
+                  items: _roleOptions
+                      .map<DropdownMenuItem<Role>>((Role value) {
                     return DropdownMenuItem<Role>(
                       value: value,
                       child: Text(value.ko),
@@ -747,7 +812,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
               ),
             ),
             const SizedBox(height: 16),
-
             // 성별
             InputDecorator(
               decoration: InputDecoration(
@@ -774,9 +838,9 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
               ),
             ),
             const SizedBox(height: 16),
-
             // 생년월일
             TextFormField(
+              controller: _birthdateController,
               readOnly: true,
               onTap: _pickBirthdateWithDialog,
               cursorColor: buttonGreen,
@@ -790,14 +854,20 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(color: buttonGreen),
                 ),
-                hintText: _birthdate != null
-                    ? DateFormat('yyyy-MM-dd').format(_birthdate!)
-                    : '선택해주세요',
               ),
             ),
-
+            const SizedBox(height: 6),
+            const Padding(
+              padding: EdgeInsets.only(left: 6.0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '만 14세 이상만 가입할 수 있습니다.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
-
             // 키/몸무게
             TextFormField(
               controller: _height,
@@ -807,7 +877,8 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                 labelText: '키 (cm)',
                 labelStyle: const TextStyle(color: Color(0xFF4B4B4B)),
                 floatingLabelStyle: TextStyle(color: buttonGreen),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(color: buttonGreen),
@@ -815,7 +886,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
               ),
               validator: _validateHeight,
             ),
-
             const SizedBox(height: 16),
             TextFormField(
               controller: _weight,
@@ -825,7 +895,8 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                 labelText: '몸무게 (kg)',
                 labelStyle: const TextStyle(color: Color(0xFF4B4B4B)),
                 floatingLabelStyle: TextStyle(color: buttonGreen),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(color: buttonGreen),
@@ -899,18 +970,23 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: buttonGreen,
-                        disabledBackgroundColor: buttonGreen.withOpacity(0.35),
+                        disabledBackgroundColor:
+                        buttonGreen.withOpacity(0.35),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      onPressed: (!_loading && (_step == 0 ? _termsAgreed : true)) ? _next : null,
+                      onPressed: (!_loading &&
+                          (_step == 0 ? (_termsAgreed && _ageConfirmed) : true))
+                          ? _next
+                          : null,
                       child: _loading
                           ? const SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2),
                       )
                           : Text(isLast ? '가입하기' : '다음'),
                     ),
@@ -954,7 +1030,10 @@ class BirthDateSheet extends StatefulWidget {
 class _BirthDateSheetState extends State<BirthDateSheet> {
   late DateTime _selected;
   final DateTime _firstDate = DateTime(1900, 1, 1);
-  final DateTime _lastDate = DateTime.now();
+  DateTime get _lastDate14 {
+    final now = DateTime.now();
+    return DateTime(now.year - 14, now.month, now.day);
+  }
 
   String _fmt(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -962,9 +1041,9 @@ class _BirthDateSheetState extends State<BirthDateSheet> {
   @override
   void initState() {
     super.initState();
-    _selected = (widget.initial != null)
-        ? widget.initial!
-        : DateTime(DateTime.now().year - 20, 1, 1);
+    final base = widget.initial ??
+        DateTime(DateTime.now().year - 20, 1, 1);
+    _selected = base.isAfter(_lastDate14) ? _lastDate14 : base;
   }
 
   @override
@@ -1001,9 +1080,10 @@ class _BirthDateSheetState extends State<BirthDateSheet> {
                     ),
                   ),
                   child: CalendarDatePicker(
-                    initialDate: _selected,
+                    initialDate:
+                    _selected.isAfter(_lastDate14) ? _lastDate14 : _selected, // CHANGED
                     firstDate: _firstDate,
-                    lastDate: _lastDate,
+                    lastDate: _lastDate14,
                     onDateChanged: (d) => setState(() => _selected = d),
                   ),
                 ),
