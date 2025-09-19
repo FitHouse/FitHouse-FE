@@ -12,7 +12,6 @@ class LegalDocsScreen extends StatelessWidget {
       child: Scaffold(
         backgroundColor: white,
         appBar: AppBar(
-          backgroundColor: white,
           elevation: 0,
           iconTheme: const IconThemeData(color: Colors.black),
           title: const Text(
@@ -22,16 +21,23 @@ class LegalDocsScreen extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          bottom: const TabBar(
-            labelColor: Color(0xFF32CB56),
-            unselectedLabelColor: grey,
-            indicatorColor: Color(0xFF32CB56),
-            tabs: [
-              Tab(text: '개인정보처리방침'),
-              Tab(text: '이용약관'),
-            ],
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(48),
+            child: Container(
+              color: Colors.white,
+              child: const TabBar(
+                labelColor: Color(0xFF32CB56),
+                unselectedLabelColor: grey,
+                indicatorColor: Color(0xFF32CB56),
+                tabs: [
+                  Tab(text: '개인정보처리방침'),
+                  Tab(text: '이용약관'),
+                ],
+              ),
+            ),
           ),
         ),
+
         body: const TabBarView(
           children: [
             _DocFutureView(loader: LegalDocsLoader.loadPrivacyKo),
