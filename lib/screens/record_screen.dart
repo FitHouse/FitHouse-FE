@@ -592,6 +592,30 @@ class _RecordScreenState extends State<RecordScreen> {
     );
   }
 
+  Widget _buildEmptyState() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Icon(Icons.fitness_center_outlined, size: 56, color: Colors.grey),
+          SizedBox(height: 12),
+          Text(
+            '아직 운동 기록이 없어요',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 8),
+          Text(
+            '운동을 기록하면 여기에 표시됩니다.',
+            style: TextStyle(color: Colors.grey),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -608,35 +632,47 @@ class _RecordScreenState extends State<RecordScreen> {
           await _loadMyInfo();
           await _loadInitial();
         },
-        child: ListView.separated(
-          controller: _scroll,
-          padding: const EdgeInsets.only(bottom: 88),
-          itemCount: 1 + _items.length + (_hasMore ? 1 : 0),
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            if (index == 0) return _buildHeader();
-            final idx = index - 1;
-            if (idx >= _items.length) {
-              return const Padding(
-                padding: EdgeInsets.all(16),
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
-            final item = _items[idx];
-            final memoTail =
-            (item.memo != null && item.memo!.isNotEmpty) ? ' • ${item.memo}' : '';
-            return ListTile(
-              leading: moodBadge(item.satisfactionLevel),
-              title: Text('${_dateStr(item.date)} · ${item.workoutName}'),
-              subtitle: Text(
-                  '시간 ${item.duration}분 • ${moodLabel(item.satisfactionLevel)}$memoTail'),
-              onTap: widget.userId == null ? () => _onEdit(item) : null,
-              trailing: widget.userId == null
-                  ? IconButton(
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () => _onDelete(item),
-              )
-                  : null,
+        child: Builder(
+          builder: (context) {
+            final bool showEmpty = _initialLoaded && _items.isEmpty && !_loading;
+            final int listCount = showEmpty ? 1 : _items.length;
+
+            return ListView.separated(
+              controller: _scroll,
+              padding: const EdgeInsets.only(bottom: 88),
+              itemCount: 1 + listCount + (_hasMore ? 1 : 0),
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                if (index == 0) return _buildHeader();
+
+                if (showEmpty) {
+                  if (index == 1) return _buildEmptyState();
+                  return const SizedBox.shrink();
+                }
+
+                final idx = index - 1;
+                if (idx >= _items.length) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                final item = _items[idx];
+                final memoTail = (item.memo != null && item.memo!.isNotEmpty) ? ' • ${item.memo}' : '';
+                return ListTile(
+                  leading: moodBadge(item.satisfactionLevel),
+                  title: Text('${_dateStr(item.date)} · ${item.workoutName}'),
+                  subtitle: Text('시간 ${item.duration}분 • ${moodLabel(item.satisfactionLevel)}$memoTail'),
+                  onTap: widget.userId == null ? () => _onEdit(item) : null,
+                  trailing: widget.userId == null
+                      ? IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () => _onDelete(item),
+                  )
+                      : null,
+                );
+              },
             );
           },
         ),
