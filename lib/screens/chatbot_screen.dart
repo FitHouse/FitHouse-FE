@@ -24,12 +24,38 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   void initState() {
     super.initState();
     currentUserUid = FirebaseAuth.instance.currentUser?.uid;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowWelcome();
+    });
   }
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  String _displayNameOrEmailPrefix() {
+    final u = FirebaseAuth.instance.currentUser;
+    final name = (u?.displayName ?? '').trim();
+    if (name.isNotEmpty) return name;
+    final email = (u?.email ?? '').trim();
+    if (email.isNotEmpty) return email.split('@').first;
+    return '회원'; // fallback
+  }
+
+  String _welcomeMessage() {
+    final hasUser = FirebaseAuth.instance.currentUser != null;
+    final who = hasUser ? '${_displayNameOrEmailPrefix()}님' : '';
+    return '안녕하세요 $who! \n운동/건강 관련해서 무엇이든 물어보세요.\n\n예: "초보자가 할 수 있는 운동 추천해줘"';
+  }
+
+  void _maybeShowWelcome() {
+    final chatProv = context.read<ChatProvider>();
+    if (chatProv.messages.isEmpty) {
+      chatProv.addBotMessage(_welcomeMessage());
+    }
   }
 
   void _sendQuestion() async {
@@ -264,6 +290,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                       if (response.statusCode == 200) {
                         chatProvider.clearMessages();
                         chatProvider.addBotMessage("새로운 대화를 시작합니다.");
+                        chatProvider.addBotMessage(_welcomeMessage());
                       } else {
                         chatProvider.addBotMessage(
                             "서버 세션 초기화 실패: ${response.statusCode}");
