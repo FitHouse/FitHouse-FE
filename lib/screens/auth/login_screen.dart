@@ -127,14 +127,25 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        'FitHouse',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.nunito(
-                          fontSize: 60,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.5,
-                          color: const Color(0xFF488500),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: SizedBox(
+                          height: 64,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'FitHouse',
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              softWrap: false,
+                              style: GoogleFonts.nunito(
+                                fontSize: 60,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.5,
+                                color: const Color(0xFF488500),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 20),
