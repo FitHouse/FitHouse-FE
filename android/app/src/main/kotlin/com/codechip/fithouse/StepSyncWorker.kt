@@ -1,4 +1,4 @@
-package com.example.fithouse
+package com.codechip.fithouse
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -38,11 +38,17 @@ class StepSyncWorker(appContext: Context, workerParams: WorkerParameters) :
             // TODO: Authorization 헤더 추가
             .build()
 
-        val response = client.newCall(request).execute()
-        if (response.isSuccessful) {
-            return Result.success()
+        try {
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                return Result.success()
+            }
+        } catch (e: Exception) {
+            // 네트워크 오류 등 예외가 발생하면 재시도하도록 설정
+            return Result.retry()
         }
 
         return Result.retry()
     }
 }
+

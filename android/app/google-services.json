@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:178628774935:android:5e4f5d8dd028ff48dde052",
+        "android_client_info": {
+          "package_name": "com.codechip.fithouse"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDY8TNLel-hC3rNdl0cv7_trdUidFbrNA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:178628774935:android:bc5ee04abb3e59d0dde052",
         "android_client_info": {
           "package_name": "com.example.fithouse"
