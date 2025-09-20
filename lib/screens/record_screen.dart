@@ -2,12 +2,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
+import 'package:fithouse/main.dart'; // ⭐️ Add this import to access routeObserver
 
 import 'package:fithouse/api/http_client.dart';
 import 'package:fithouse/api/personal_workout_api.dart';
 import 'package:fithouse/models/paged.dart';
 import 'package:fithouse/models/personal_workout.dart';
-
 import '../constants/colors.dart';
 
 String moodEmoji(int? level) {
@@ -110,7 +110,7 @@ class RecordScreen extends StatefulWidget {
   State<RecordScreen> createState() => _RecordScreenState();
 }
 
-class _RecordScreenState extends State<RecordScreen> {
+class _RecordScreenState extends State<RecordScreen> with RouteAware { // ⭐️ Add with RouteAware
   final PersonalWorkoutApi api = PersonalWorkoutApi();
   final ScrollController _scroll = ScrollController();
 
@@ -147,10 +147,23 @@ class _RecordScreenState extends State<RecordScreen> {
     _scroll.addListener(_onScroll);
   }
 
+  // ⭐️ Add didChangeDependencies and dispose
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context) as PageRoute);
+  }
+
   @override
   void dispose() {
     _scroll.dispose();
+    routeObserver.unsubscribe(this);
     super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    _loadInitial();
   }
 
   double get _bmi {
@@ -163,8 +176,7 @@ class _RecordScreenState extends State<RecordScreen> {
   int _calcAge(DateTime birth) {
     final now = DateTime.now();
     int age = now.year - birth.year;
-    if (now.month < birth.month ||
-        (now.month == birth.month && now.day < birth.day)) {
+    if (now.month < birth.month || (now.month == birth.month && now.day < birth.day)) {
       age--;
     }
     return age;
@@ -180,8 +192,7 @@ class _RecordScreenState extends State<RecordScreen> {
           widget.userId == null
               ? '$baseUrl/api/users/me'
               : '$baseUrl/family/member/${widget.userId}');
-      final res =
-      await httpClient.get(uri, headers: await authHeaders(json: false));
+      final res = await httpClient.get(uri, headers: await authHeaders(json: false));
 
       if (res.statusCode != 200) {
         setState(() {
@@ -268,11 +279,9 @@ class _RecordScreenState extends State<RecordScreen> {
         final data = jsonDecode(res.body);
 
         if (data != null && data['workouts'] is Map<String, dynamic>) {
-          resp =
-              Paged.fromJson(data['workouts'], PersonalWorkout.fromJson);
+          resp = Paged.fromJson(data['workouts'], PersonalWorkout.fromJson);
         } else {
-          resp =
-              Paged(content: [], page: next, totalPages: _page + 1);
+          resp = Paged(content: [], page: next, totalPages: _page + 1);
         }
       }
       setState(() {
@@ -290,8 +299,7 @@ class _RecordScreenState extends State<RecordScreen> {
   void _onScroll() {
     if (!_scroll.hasClients) return;
     const threshold = 200.0;
-    if (_scroll.position.maxScrollExtent - _scroll.position.pixels <=
-        threshold) {
+    if (_scroll.position.maxScrollExtent - _scroll.position.pixels <= threshold) {
       _loadMore();
     }
   }
@@ -352,8 +360,7 @@ class _RecordScreenState extends State<RecordScreen> {
         memo: result.memo,
       );
       setState(() {
-        final idx =
-        _items.indexWhere((e) => e.workoutId == item.workoutId);
+        final idx = _items.indexWhere((e) => e.workoutId == item.workoutId);
         if (idx != -1) _items[idx] = updated;
         _dirty = true;
       });
@@ -450,8 +457,7 @@ class _RecordScreenState extends State<RecordScreen> {
             width: 56,
             height: 56,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) =>
-            const Icon(Icons.person, size: 28),
+            errorBuilder: (_, __, ___) => const Icon(Icons.person, size: 28),
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
               return const SizedBox(
@@ -516,17 +522,14 @@ class _RecordScreenState extends State<RecordScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(titleName,
-                          style: Theme.of(context).textTheme.titleMedium),
-                      Text('개인 지표',
-                          style: Theme.of(context).textTheme.bodySmall),
+                      Text(titleName, style: Theme.of(context).textTheme.titleMedium),
+                      Text('개인 지표', style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
                 ),
                 if (widget.userId == null)
                   TextButton.icon(
-                    onPressed: () =>
-                        setState(() => _detailsOpen = !_detailsOpen),
+                    onPressed: () => setState(() => _detailsOpen = !_detailsOpen),
                     icon: Icon(
                       _detailsOpen ? Icons.expand_less : Icons.expand_more,
                       size: 18,
@@ -540,7 +543,6 @@ class _RecordScreenState extends State<RecordScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            // 수정된 부분: Row + Expanded
             Row(
               children: [
                 Expanded(child: _metricChip('키', _heightCm != null ? '${_heightCm!.toStringAsFixed(0)}cm' : '-')),
@@ -550,8 +552,7 @@ class _RecordScreenState extends State<RecordScreen> {
               ],
             ),
             AnimatedCrossFade(
-              crossFadeState:
-              _detailsOpen ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+              crossFadeState: _detailsOpen ? CrossFadeState.showFirst : CrossFadeState.showSecond,
               duration: const Duration(milliseconds: 200),
               firstChild: Padding(
                 padding: const EdgeInsets.only(top: 12),
@@ -559,8 +560,7 @@ class _RecordScreenState extends State<RecordScreen> {
                   children: [
                     const Divider(height: 1),
                     const SizedBox(height: 12),
-                    _detailRow('생년월일',
-                        _birthdate != null ? _dateStr(_birthdate!) : '-'),
+                    _detailRow('생년월일', _birthdate != null ? _dateStr(_birthdate!) : '-'),
                     const SizedBox(height: 8),
                     _detailRow('성별', genderLabel(_gender)),
                     const SizedBox(height: 8),
@@ -583,14 +583,12 @@ class _RecordScreenState extends State<RecordScreen> {
       children: [
         Flexible(
           flex: 3,
-          child: Text(label,
-              style: Theme.of(context).textTheme.bodySmall),
+          child: Text(label, style: Theme.of(context).textTheme.bodySmall),
         ),
         const SizedBox(width: 8),
         Flexible(
           flex: 7,
-          child: Text(value,
-              style: Theme.of(context).textTheme.bodyMedium),
+          child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
         ),
       ],
     );
@@ -623,16 +621,16 @@ class _RecordScreenState extends State<RecordScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false, // 우리가 직접 pop 처리 (하드웨어/제스처/앱바 모두 커버)
+      canPop: false,
       onPopInvoked: (didPop) {
-        if (didPop) return; // 이미 pop된 경우는 무시
-        Navigator.pop(context, _dirty); // 변경 여부를 부모에게 전달
+        if (didPop) return;
+        Navigator.pop(context, _dirty);
       },
       child: Scaffold(
         appBar: AppBar(
           title: const Text('개인운동 기록'),
           leading: BackButton(
-            onPressed: () => Navigator.pop(context, _dirty), // 앱바 뒤로가기도 동일 처리
+            onPressed: () => Navigator.pop(context, _dirty),
           ),
         ),
         floatingActionButton: widget.userId == null
@@ -642,7 +640,7 @@ class _RecordScreenState extends State<RecordScreen> {
           child: const Icon(Icons.add),
         )
             : null,
-        body: RefreshIndicator(
+        body: RefreshIndicator( // ⭐️ Add RefreshIndicator
           onRefresh: () async {
             await _loadMyInfo();
             await _loadInitial();
@@ -815,8 +813,7 @@ class _EditSheetState extends State<_EditSheet> {
                     borderSide: BorderSide(color: Colors.green),
                   ),
                 ),
-                validator: (v) =>
-                (v == null || v.trim().isEmpty) ? '운동명을 입력하세요.' : null,
+                validator: (v) => (v == null || v.trim().isEmpty) ? '운동명을 입력하세요.' : null,
                 maxLength: 100,
               ),
               TextFormField(
@@ -896,13 +893,9 @@ Widget _metricChip(String label, String value) {
     label: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label,
-            style: const TextStyle(fontSize: 12),
-            textAlign: TextAlign.center),
+        Text(label, style: const TextStyle(fontSize: 12), textAlign: TextAlign.center),
         const SizedBox(height: 2),
-        Text(value,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
       ],
     ),
     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
