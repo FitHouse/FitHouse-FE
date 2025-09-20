@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 
 import 'package:fithouse/api/http_client.dart'; // baseUrl, authHeaders, httpClient
+import 'package:fithouse/screens/record_screen.dart';
 
 class GroupScreen extends StatefulWidget {
   const GroupScreen({super.key});
@@ -49,6 +50,16 @@ class _GroupScreenState extends State<GroupScreen> {
       'Authorization': 'Bearer $idToken',
       'Content-Type': 'application/json',
     };
+  }
+
+  Future<void> _openMyRecord() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const RecordScreen()),
+    );
+    if (!mounted) return;
+    if (changed == true) {
+      _fetchMine();
+    }
   }
 
   Future<void> _fetchMine() async {

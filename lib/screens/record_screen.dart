@@ -120,6 +120,7 @@ class _RecordScreenState extends State<RecordScreen> {
   int _page = 0;
   final int _size = 20;
   bool _hasMore = true;
+  bool _dirty = false;
 
   double? _heightCm;
   double? _weightKg;
@@ -313,6 +314,7 @@ class _RecordScreenState extends State<RecordScreen> {
       );
       setState(() {
         _items.insert(0, created);
+        _dirty = true;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -353,6 +355,7 @@ class _RecordScreenState extends State<RecordScreen> {
         final idx =
         _items.indexWhere((e) => e.workoutId == item.workoutId);
         if (idx != -1) _items[idx] = updated;
+        _dirty = true;
       });
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -423,6 +426,7 @@ class _RecordScreenState extends State<RecordScreen> {
       await api.delete(workoutId: item.workoutId);
       setState(() {
         _items.removeWhere((e) => e.workoutId == item.workoutId);
+        _dirty = true;
       });
     } catch (e) {
       _showError(e.toString());
@@ -618,63 +622,79 @@ class _RecordScreenState extends State<RecordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('개인운동 기록')),
-      floatingActionButton: widget.userId == null
-          ? FloatingActionButton(
-        onPressed: _onCreate,
-        backgroundColor: Colors.green,
-        child: const Icon(Icons.add),
-      )
-          : null,
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await _loadMyInfo();
-          await _loadInitial();
-        },
-        child: Builder(
-          builder: (context) {
-            final bool showEmpty = _initialLoaded && _items.isEmpty && !_loading;
-            final int listCount = showEmpty ? 1 : _items.length;
-
-            return ListView.separated(
-              controller: _scroll,
-              padding: const EdgeInsets.only(bottom: 88),
-              itemCount: 1 + listCount + (_hasMore ? 1 : 0),
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                if (index == 0) return _buildHeader();
-
-                if (showEmpty) {
-                  if (index == 1) return _buildEmptyState();
-                  return const SizedBox.shrink();
-                }
-
-                final idx = index - 1;
-                if (idx >= _items.length) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-
-                final item = _items[idx];
-                final memoTail = (item.memo != null && item.memo!.isNotEmpty) ? ' • ${item.memo}' : '';
-                return ListTile(
-                  leading: moodBadge(item.satisfactionLevel),
-                  title: Text('${_dateStr(item.date)} · ${item.workoutName}'),
-                  subtitle: Text('시간 ${item.duration}분 • ${moodLabel(item.satisfactionLevel)}$memoTail'),
-                  onTap: widget.userId == null ? () => _onEdit(item) : null,
-                  trailing: widget.userId == null
-                      ? IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () => _onDelete(item),
-                  )
-                      : null,
-                );
-              },
-            );
+    return PopScope(
+      canPop: false, // 우리가 직접 pop 처리 (하드웨어/제스처/앱바 모두 커버)
+      onPopInvoked: (didPop) {
+        if (didPop) return; // 이미 pop된 경우는 무시
+        Navigator.pop(context, _dirty); // 변경 여부를 부모에게 전달
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('개인운동 기록'),
+          leading: BackButton(
+            onPressed: () => Navigator.pop(context, _dirty), // 앱바 뒤로가기도 동일 처리
+          ),
+        ),
+        floatingActionButton: widget.userId == null
+            ? FloatingActionButton(
+          onPressed: _onCreate,
+          backgroundColor: Colors.green,
+          child: const Icon(Icons.add),
+        )
+            : null,
+        body: RefreshIndicator(
+          onRefresh: () async {
+            await _loadMyInfo();
+            await _loadInitial();
           },
+          child: Builder(
+            builder: (context) {
+              final bool showEmpty = _initialLoaded && _items.isEmpty && !_loading;
+              final int listCount = showEmpty ? 1 : _items.length;
+
+              return ListView.separated(
+                controller: _scroll,
+                padding: const EdgeInsets.only(bottom: 88),
+                itemCount: 1 + listCount + (_hasMore ? 1 : 0),
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  if (index == 0) return _buildHeader();
+
+                  if (showEmpty) {
+                    if (index == 1) return _buildEmptyState();
+                    return const SizedBox.shrink();
+                  }
+
+                  final idx = index - 1;
+                  if (idx >= _items.length) {
+                    return const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+
+                  final item = _items[idx];
+                  final memoTail = (item.memo != null && item.memo!.isNotEmpty)
+                      ? ' • ${item.memo}'
+                      : '';
+                  return ListTile(
+                    leading: moodBadge(item.satisfactionLevel),
+                    title: Text('${_dateStr(item.date)} · ${item.workoutName}'),
+                    subtitle: Text(
+                      '시간 ${item.duration}분 • ${moodLabel(item.satisfactionLevel)}$memoTail',
+                    ),
+                    onTap: widget.userId == null ? () => _onEdit(item) : null,
+                    trailing: widget.userId == null
+                        ? IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () => _onDelete(item),
+                    )
+                        : null,
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
     );
