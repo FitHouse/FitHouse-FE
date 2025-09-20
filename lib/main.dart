@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
@@ -59,10 +57,10 @@ class FitHouseApp extends StatelessWidget {
         fontFamily: 'PyeojinGothic',
         useMaterial3: false,
       ),
-      home: const SplashScreen(),
+      home: const AuthGate(), // SplashScreen 대신 AuthGate 바로 실행
       routes: {
         '/login': (_) => const LoginScreen(),
-        '/auth' : (_) => const AuthGate(),
+        '/auth': (_) => const AuthGate(),
       },
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -74,42 +72,6 @@ class FitHouseApp extends StatelessWidget {
         Locale('en', ''),
       ],
       locale: const Locale('ko', ''), // 앱 기본 언어를 한국어로
-    );
-  }
-}
-
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
-
-  @override
-  State<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends State<SplashScreen> {
-  @override
-  void initState() {
-    super.initState();
-    // 스플래시 화면이 2초 후 AuthGate로 이동하도록 합니다.
-    Timer(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AuthGate()),
-      );
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // SplashScreen은 로고만 보여주는 역할만 담당합니다.
-    return const Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Image(
-          image: AssetImage('assets/images/splash_logo.png'),
-          width: 180,
-        ),
-      ),
     );
   }
 }
