@@ -169,7 +169,7 @@ class _MainScreenState extends State<MainScreen> {
             icon: Icon(Icons.directions_walk),
             label: '만보기',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.pets), label: '커뮤니티'),
+          BottomNavigationBarItem(icon: Icon(Icons.cabin), label: '커뮤니티'),
           BottomNavigationBarItem(icon: Icon(Icons.settings), label: '설정'),
         ],
       ),
