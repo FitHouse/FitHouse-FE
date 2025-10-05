@@ -3,12 +3,11 @@
     <!-- 배경색 -->
     <item android:drawable="@android:color/white" />
 
-    <!-- 로고 이미지 -->
     <item>
         <bitmap
             android:gravity="center"
             android:src="@drawable/splash_logo"
             android:tileMode="disabled"
-            android:scaleType="centerInside"/>
+            android:scaleType="centerCrop" />
     </item>
 </layer-list>
