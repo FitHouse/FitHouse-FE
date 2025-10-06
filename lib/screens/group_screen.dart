@@ -1,12 +1,14 @@
+// 사용자 친화적 문구 및 오류 로그 제거 버전
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 
-import 'package:fithouse/api/http_client.dart'; // baseUrl, authHeaders, httpClient
+import 'package:fithouse/api/http_client.dart';
 import 'package:fithouse/screens/record_screen.dart';
 
+// 가족 화면
 class GroupScreen extends StatefulWidget {
   const GroupScreen({super.key});
 
@@ -39,51 +41,42 @@ class _GroupScreenState extends State<GroupScreen> {
     super.dispose();
   }
 
+  // Firebase 인증 헤더 가져오기
   Future<Map<String, String>> _authHeader() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw Exception('로그인이 필요합니다.');
     final idToken = await user.getIdToken(true);
-    if (idToken?.isEmpty ?? true) {
-      throw Exception('ID 토큰을 가져오지 못했습니다.');
-    }
     return {
       'Authorization': 'Bearer $idToken',
       'Content-Type': 'application/json',
     };
   }
 
-  Future<void> _openMyRecord() async {
-    final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => const RecordScreen()),
-    );
-    if (!mounted) return;
-    if (changed == true) {
-      _fetchMine();
-    }
-  }
-
+  // 내 가족 정보 불러오기
   Future<void> _fetchMine() async {
     setState(() => _loading = true);
     try {
       final headers = await _authHeader();
       final url = Uri.parse('$baseUrl/family/mine');
       final res = await http.get(url, headers: headers);
+
       if (res.statusCode == 200) {
         final json = jsonDecode(res.body) as Map<String, dynamic>;
         setState(() => _mine = json);
       } else {
-        _showSnack('가족 조회 실패: ${res.statusCode}');
+        _showSnack('가족 정보를 불러오지 못했습니다.');
       }
-    } catch (e) {
-      _showSnack('가족 조회 오류: $e');
+    } catch (_) {
+      _showSnack('네트워크 연결이 원활하지 않습니다.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  // 가족 생성
   Future<void> _createFamily() async {
     if (_inFamily) {
-      _showSnack('이미 가족이 생성되었습니다.');
+      _showSnack('이미 가족이 생성되어 있습니다.');
       return;
     }
     final name = _familyNameCtrl.text.trim();
@@ -91,6 +84,7 @@ class _GroupScreenState extends State<GroupScreen> {
       _showSnack('가족 이름을 입력하세요.');
       return;
     }
+
     setState(() => _loading = true);
     try {
       final headers = await _authHeader();
@@ -101,27 +95,28 @@ class _GroupScreenState extends State<GroupScreen> {
             ? null
             : _familyCommentCtrl.text.trim(),
       });
+
       final res = await http.post(url, headers: headers, body: body);
 
       if (res.statusCode == 200) {
         final json = jsonDecode(res.body);
         final code = json['inviteCode'] as String?;
         if (code != null) {
-          _inviteCodeCtrl.text = code;
           setState(() => _createdInviteCode = code);
         }
-        _showSnack('가족 생성 완료');
+        _showSnack('가족이 생성되었습니다.');
         await _fetchMine();
       } else {
-        _showSnack('가족 생성 실패: ${res.statusCode}\n${res.body}');
+        _showSnack('가족 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
       }
-    } catch (e) {
-      _showSnack('가족 생성 오류: $e');
+    } catch (_) {
+      _showSnack('가족 생성 중 문제가 발생했습니다.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  // 가족 가입
   Future<void> _joinFamily() async {
     if (_inFamily) {
       _showSnack('이미 가족에 가입되어 있습니다.');
@@ -132,25 +127,30 @@ class _GroupScreenState extends State<GroupScreen> {
       _showSnack('초대코드를 입력하세요.');
       return;
     }
+
     setState(() => _loading = true);
     try {
       final headers = await _authHeader();
       final url = Uri.parse('$baseUrl/family/join');
       final body = jsonEncode({'code': code});
       final res = await http.post(url, headers: headers, body: body);
+
       if (res.statusCode == 200) {
-        _showSnack('가족 가입 완료');
+        _showSnack('가족 가입이 완료되었습니다.');
         await _fetchMine();
+      } else if (res.statusCode == 404) {
+        _showSnack('존재하지 않는 초대코드입니다. 다시 확인해주세요.');
       } else {
-        _showSnack('가족 가입 실패: ${res.statusCode}\n${res.body}');
+        _showSnack('가족 가입에 실패했습니다. 잠시 후 다시 시도해주세요.');
       }
-    } catch (e) {
-      _showSnack('가족 가입 오류: $e');
+    } catch (_) {
+      _showSnack('가족 가입 중 문제가 발생했습니다.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  // 공통 스낵바
   void _showSnack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -198,7 +198,6 @@ class _GroupScreenState extends State<GroupScreen> {
                   ),
                 ),
 
-                // 가족이 없는 경우에만 생성/가입 UI 보여줌
                 if (!_inFamily) ...[
                   const SizedBox(height: 24),
                   _SectionHeader(title: '가족 생성'),
@@ -249,28 +248,42 @@ class _GroupScreenState extends State<GroupScreen> {
                       elevation: 2,
                       child: Padding(
                         padding: const EdgeInsets.all(16),
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.vpn_key, size: 20, color: Colors.green),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: SelectableText(
-                                _createdInviteCode!,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black87,
-                                ),
+                            const Text(
+                              '가족 초대코드',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
                               ),
                             ),
-                            IconButton(
-                              onPressed: () async {
-                                await Clipboard.setData(
-                                    ClipboardData(text: _createdInviteCode!));
-                                _showSnack('초대코드를 복사했습니다.');
-                              },
-                              icon: const Icon(Icons.copy, color: Colors.green),
-                              tooltip: '복사',
+                            const SizedBox(height: 8),
+                            SelectableText(
+                              _createdInviteCode!,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () async {
+                                  await Clipboard.setData(
+                                      ClipboardData(text: _createdInviteCode!));
+                                  _showSnack('초대코드를 복사했습니다.');
+                                },
+                                icon: const Icon(Icons.copy, color: Colors.green),
+                                label: const Text('초대코드 복사하기'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.green,
+                                  side: const BorderSide(color: Colors.green),
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -331,6 +344,7 @@ class _GroupScreenState extends State<GroupScreen> {
   }
 }
 
+// 구역 헤더
 class _SectionHeader extends StatelessWidget {
   final String title;
   final Widget? trailing;
@@ -364,14 +378,15 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+// 가족이 없을 때
 class _EmptyFamilyView extends StatelessWidget {
   const _EmptyFamilyView();
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
+      children: [
         Text(
           '가족에 가입되어 있지 않습니다.',
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
@@ -386,6 +401,7 @@ class _EmptyFamilyView extends StatelessWidget {
   }
 }
 
+// 가족 정보 표시
 class _FamilyInfoView extends StatelessWidget {
   final String familyName;
   final String? inviteCode;
@@ -405,7 +421,28 @@ class _FamilyInfoView extends StatelessWidget {
         _KeyValueRow(label: '가족 이름', value: familyName),
         if (inviteCode != null) ...[
           const SizedBox(height: 6),
-          _KeyValueRow(label: '가족 코드', value: inviteCode!),
+          Row(
+            children: [
+              const SizedBox(width: 96, child: Text('가족 코드', style: TextStyle(color: Colors.black54))),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  inviteCode!,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.copy, color: Colors.green),
+                tooltip: '복사',
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: inviteCode!));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('가족 코드를 복사했습니다.')),
+                  );
+                },
+              ),
+            ],
+          ),
         ],
         const SizedBox(height: 12),
         const Text('가족 구성원', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -433,6 +470,7 @@ class _FamilyInfoView extends StatelessWidget {
   }
 }
 
+// 정보 행 표시용
 class _KeyValueRow extends StatelessWidget {
   final String label;
   final String value;
