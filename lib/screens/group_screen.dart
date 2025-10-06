@@ -1,14 +1,14 @@
-// 사용자 친화적 문구 및 오류 로그 제거 버전
+// 가족 초대코드 복사 및 카카오톡 공유 기능 포함 배포용 완성 코드
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart'; // 공유 기능 패키지
 
 import 'package:fithouse/api/http_client.dart';
 import 'package:fithouse/screens/record_screen.dart';
 
-// 가족 화면
 class GroupScreen extends StatefulWidget {
   const GroupScreen({super.key});
 
@@ -50,6 +50,12 @@ class _GroupScreenState extends State<GroupScreen> {
       'Authorization': 'Bearer $idToken',
       'Content-Type': 'application/json',
     };
+  }
+
+  // 초대코드 공유 함수
+  Future<void> _shareInviteCode(String code) async {
+    final message = '핏하우스 가족 초대코드: $code\n앱에서 입력하고 가족으로 함께하세요!';
+    await Share.share(message, subject: '핏하우스 가족 초대');
   }
 
   // 내 가족 정보 불러오기
@@ -194,6 +200,7 @@ class _GroupScreenState extends State<GroupScreen> {
                       familyName: familyName ?? '',
                       inviteCode: inviteCode,
                       members: members,
+                      onShare: _shareInviteCode, // 공유 함수 전달
                     ),
                   ),
                 ),
@@ -269,21 +276,36 @@ class _GroupScreenState extends State<GroupScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                onPressed: () async {
-                                  await Clipboard.setData(
-                                      ClipboardData(text: _createdInviteCode!));
-                                  _showSnack('초대코드를 복사했습니다.');
-                                },
-                                icon: const Icon(Icons.copy, color: Colors.green),
-                                label: const Text('초대코드 복사하기'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.green,
-                                  side: const BorderSide(color: Colors.green),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () async {
+                                      await Clipboard.setData(
+                                          ClipboardData(text: _createdInviteCode!));
+                                      _showSnack('초대코드를 복사했습니다.');
+                                    },
+                                    icon: const Icon(Icons.copy, color: Colors.green),
+                                    label: const Text('복사하기'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.green,
+                                      side: const BorderSide(color: Colors.green),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => _shareInviteCode(_createdInviteCode!),
+                                    icon: const Icon(Icons.share, color: Colors.green),
+                                    label: const Text('공유하기'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.green,
+                                      side: const BorderSide(color: Colors.green),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -344,7 +366,6 @@ class _GroupScreenState extends State<GroupScreen> {
   }
 }
 
-// 구역 헤더
 class _SectionHeader extends StatelessWidget {
   final String title;
   final Widget? trailing;
@@ -378,7 +399,6 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-// 가족이 없을 때
 class _EmptyFamilyView extends StatelessWidget {
   const _EmptyFamilyView();
 
@@ -401,16 +421,17 @@ class _EmptyFamilyView extends StatelessWidget {
   }
 }
 
-// 가족 정보 표시
 class _FamilyInfoView extends StatelessWidget {
   final String familyName;
   final String? inviteCode;
   final List members;
+  final Future<void> Function(String code)? onShare;
 
   const _FamilyInfoView({
     required this.familyName,
     this.inviteCode,
     required this.members,
+    this.onShare,
   });
 
   @override
@@ -441,6 +462,11 @@ class _FamilyInfoView extends StatelessWidget {
                   );
                 },
               ),
+              IconButton(
+                icon: const Icon(Icons.share, color: Colors.green),
+                tooltip: '공유',
+                onPressed: () => onShare?.call(inviteCode!),
+              ),
             ],
           ),
         ],
@@ -470,7 +496,6 @@ class _FamilyInfoView extends StatelessWidget {
   }
 }
 
-// 정보 행 표시용
 class _KeyValueRow extends StatelessWidget {
   final String label;
   final String value;
