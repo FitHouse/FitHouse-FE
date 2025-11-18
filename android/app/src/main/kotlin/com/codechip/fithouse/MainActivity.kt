@@ -1,4 +1,5 @@
-package com.example.fithouse // ← 실제 패키지명으로 바꾸세요
+package com.codechip.fithouse
+
 
 import android.Manifest
 import android.content.Context
@@ -13,14 +14,15 @@ import android.util.Log
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import java.time.LocalDate
-
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
+import com.codechip.fithouse.StepSyncWorker
+
 
 class MainActivity : FlutterActivity(), SensorEventListener {
 

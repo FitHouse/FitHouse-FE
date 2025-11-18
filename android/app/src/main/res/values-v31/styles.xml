@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <!-- A12+ 시스템 스플래시 아이콘 제거 -->
+        <item name="android:windowSplashScreenAnimatedIcon">@null</item>
+        <item name="android:windowSplashScreenBackground">#FFFFFF</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@null</item>
+
+        <!-- 백그라운드도 흰색 유지 -->
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+</resources>

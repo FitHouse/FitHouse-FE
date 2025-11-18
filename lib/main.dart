@@ -23,10 +23,12 @@ RouteObserver<ModalRoute<void>>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(FitHouseApp());
+  runApp(const FitHouseApp());
 }
 
 class FitHouseApp extends StatelessWidget {
+  const FitHouseApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -57,7 +59,7 @@ class FitHouseApp extends StatelessWidget {
         fontFamily: 'PyeojinGothic',
         useMaterial3: false,
       ),
-      home: const AuthGate(), // SplashScreen 대신 AuthGate 바로 실행
+      home: const AuthGate(),
       routes: {
         '/login': (_) => const LoginScreen(),
         '/auth': (_) => const AuthGate(),
@@ -71,7 +73,7 @@ class FitHouseApp extends StatelessWidget {
         Locale('ko', ''),
         Locale('en', ''),
       ],
-      locale: const Locale('ko', ''), // 앱 기본 언어를 한국어로
+      locale: const Locale('ko', ''),
     );
   }
 }
@@ -81,24 +83,23 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // AuthGate가 로그인 상태를 확인하여 화면을 분기합니다.
+    // OS 스플래시 이후 바로 첫 프레임을 그리기 위해 StreamBuilder만 사용
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (_, snap) {
+        // ✅ 대기 상태에서도 추가 스플래시/로딩 UI를 띄우지 않음
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          // 첫 프레임을 가능한 빨리 그리도록 빈 위젯 반환
+          return const SizedBox.shrink();
         }
+
         final user = snap.data;
         if (user == null) {
-          // 1. 로그아웃 상태이면 로그인 화면을 보여줍니다.
           return const LoginScreen();
         }
-        // 2. 로그인 상태이면, 해당 사용자만을 위한 새로운 ChatProvider를 생성하고
-        //    MainScreen을 보여줍니다.
+
         return ChangeNotifierProvider(
-          key: ValueKey(user.uid), // 사용자가 바뀔 때마다 Provider를 새로 만듭니다.
+          key: ValueKey(user.uid),
           create: (context) => ChatProvider(),
           child: MainScreen(),
         );
@@ -108,8 +109,9 @@ class AuthGate extends StatelessWidget {
 }
 
 class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
   @override
-  _MainScreenState createState() => _MainScreenState();
+  State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
@@ -123,11 +125,7 @@ class _MainScreenState extends State<MainScreen> {
     SettingScreen(),
   ];
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
+  void _onItemTapped(int index) => setState(() => _selectedIndex = index);
 
   @override
   Widget build(BuildContext context) {
@@ -140,7 +138,7 @@ class _MainScreenState extends State<MainScreen> {
           onPressed: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => GroupScreen()),
+              MaterialPageRoute(builder: (_) => const GroupScreen()),
             );
           },
           tooltip: '그룹 만들기/참여',
@@ -151,7 +149,7 @@ class _MainScreenState extends State<MainScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => RecordScreen()),
+                MaterialPageRoute(builder: (_) => const RecordScreen()),
               );
             },
             tooltip: '개인운동 기록',
@@ -165,11 +163,8 @@ class _MainScreenState extends State<MainScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.chat), label: '챗봇'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: '가족/내정보'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.directions_walk),
-            label: '만보기',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.pets), label: '커뮤니티'),
+          BottomNavigationBarItem(icon: Icon(Icons.directions_walk), label: '만보기'),
+          BottomNavigationBarItem(icon: Icon(Icons.cabin), label: '커뮤니티'),
           BottomNavigationBarItem(icon: Icon(Icons.settings), label: '설정'),
         ],
       ),
