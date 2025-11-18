@@ -87,6 +87,7 @@ flutter:
   assets:
     - assets/json/allparkdata.json
     - assets/json/allfacilitydata.json
+    - assets/json/optimized_park_data.json
     - assets/images/splash_logo.png
     - assets/videos/flower.mp4
     - assets/images/level1.png
