@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'package:fithouse/models/sports_facility.dart';
 
 part 'park.g.dart';
 
@@ -36,6 +37,9 @@ class Park {
 
   @JsonKey(name: '공원보유시설(기타시설)')
   final String? etcFclty;
+
+  @JsonKey(ignore: true)
+  SportsFacility? nearestFacility;
 
   Park({
     this.parkNm,
