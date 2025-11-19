@@ -23,7 +23,13 @@ RouteObserver<ModalRoute<void>>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(const FitHouseApp());
+
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => ChatProvider(), // ChatProvider를 최상위 스코프에 배치
+      child: const FitHouseApp(),
+    ),
+  );
 }
 
 class FitHouseApp extends StatelessWidget {
@@ -87,7 +93,7 @@ class AuthGate extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (_, snap) {
-        // ✅ 대기 상태에서도 추가 스플래시/로딩 UI를 띄우지 않음
+        // 대기 상태에서도 추가 스플래시/로딩 UI를 띄우지 않음
         if (snap.connectionState == ConnectionState.waiting) {
           // 첫 프레임을 가능한 빨리 그리도록 빈 위젯 반환
           return const SizedBox.shrink();
