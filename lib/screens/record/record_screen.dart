@@ -179,7 +179,6 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
   Widget build(BuildContext context) {
     final data = _dataManager.data;
     final selectedEvents = data.getEventsForDay(_selectedDay ?? DateTime.now());
-    // ⭐️ Theme.of(context).primaryColor를 사용합니다.
     final Color primaryColor = Theme.of(context).primaryColor;
 
     return PopScope(
@@ -188,7 +187,7 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
       child: Scaffold(
         backgroundColor: const Color(0xFFF8F9FA),
 
-        // 앱바 스타일: backgroundColor를 제거하여 main.dart의 AppBarTheme을 따릅니다.
+        // 앱바 스타일: 테마를 따릅니다.
         appBar: AppBar(
           title: const Text('개인운동 기록', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
           elevation: 0,
@@ -236,7 +235,7 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
                     ),
                     todayTextStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 15),
 
-                    // 선택된 날짜: 진한 녹색 (Colors.green) 사용 (이 부분은 명시적인 진한 색을 유지)
+                    // 선택된 날짜: 진한 녹색 (Colors.green) 사용
                     selectedDecoration: const BoxDecoration(
                       color: Colors.green,
                       shape: BoxShape.circle,
@@ -247,11 +246,44 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
                         fontSize: 15
                     ),
 
-                    // 이벤트 마커
-                    markerDecoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
+                    // ❌ markerDecoration을 제거하여 커스텀 빌더 사용
+                    // markerDecoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
                     markerSize: 6,
                     markerMargin: const EdgeInsets.only(top: 8),
                   ),
+
+                  // 🎯 calendarBuilders를 사용하여 이벤트 마커 커스텀 빌드
+                  calendarBuilders: CalendarBuilders(
+                    markerBuilder: (context, day, events) {
+                      if (events.isEmpty) return const SizedBox.shrink();
+
+                      // 이벤트 개수에 따라 마커를 중앙에 모아서 표시
+                      return Positioned(
+                        right: 8, bottom: 8,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(
+                            events.length.clamp(0, 3), // 최대 3개까지만 마커 표시
+                                (index) {
+                              // getEventMarkerColor 함수를 사용하여 파스텔 색상을 순환하며 가져옴
+                              final color = getEventMarkerColor(index);
+
+                              return Container(
+                                width: 6.0,
+                                height: 6.0,
+                                margin: const EdgeInsets.only(left: 1.0),
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+
                   onDaySelected: (selectedDay, focusedDay) { if (!isSameDay(_selectedDay, selectedDay)) setState(() { _selectedDay = selectedDay; _focusedDay = focusedDay; }); },
                   onPageChanged: (focusedDay) => _focusedDay = focusedDay,
                 ),

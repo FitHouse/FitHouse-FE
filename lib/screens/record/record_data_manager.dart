@@ -10,8 +10,19 @@ import 'package:fithouse/api/personal_workout_api.dart';
 import 'package:fithouse/models/paged.dart';
 import 'package:fithouse/models/personal_workout.dart';
 
-// ⭐️ 새로운 파스텔 톤의 메인 색상 (#8FC7A7: 소프트 세이지 그린)
+// ⭐️ 메인 테마 색상: 새로운 파스텔 톤 (#8FC7A7)
 const Color mainGreen = Color(0xFF8FC7A7);
+
+// 🎯 이벤트 마커에 사용할 파스텔 색상 리스트
+final pastelColors = const [
+  Color(0xFFB3E5FC), // 연한 하늘색
+  Color(0xFFFFCDD2), // 연한 빨간색
+  Color(0xFFC8E6C9), // 연한 녹색
+  Color(0xFFFFF9C4), // 연한 노란색
+  Color(0xFFD1C4E9), // 연한 보라색
+  Color(0xFFFFE0B2), // 연한 주황색
+  Color(0xFFDCEDC8), // 연한 라임색
+];
 
 // -----------------------------------------------------------------------------
 // [1] 헬퍼 함수 및 위젯
@@ -58,6 +69,12 @@ Widget moodBadge(int? level) {
     alignment: Alignment.center,
     child: Text(moodEmoji(level), style: const TextStyle(fontSize: 20)),
   );
+}
+
+// 🎯 이벤트 인덱스에 따라 마커 색상을 순환하며 반환하는 헬퍼 함수
+Color getEventMarkerColor(int index) {
+  if (index < 0) return Colors.grey;
+  return pastelColors[index % pastelColors.length];
 }
 
 String roleLabel(String? role) {
@@ -313,7 +330,6 @@ class _EditSheetState extends State<EditSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // mainGreen 상수가 이 파일에 정의되어 있으므로 사용 가능
     return Container(
       decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       padding: EdgeInsets.only(left: 24, right: 24, top: 24, bottom: MediaQuery.of(context).viewInsets.bottom + 24),
