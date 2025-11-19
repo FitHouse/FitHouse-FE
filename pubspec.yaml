@@ -53,6 +53,9 @@ dependencies:
   table_calendar: ^3.0.9
   share_plus: ^12.0.0
 
+  pdf: ^3.7.4
+  printing: ^5.10.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -98,6 +101,8 @@ flutter:
     - assets/images/question.png
     - assets/docs/privacy_ko.md
     - assets/docs/terms_ko.md
+    - assets/fonts/NotoSansKR-Regular.ttf
+    # 새로 추가한 한글 폰트
 
 
   fonts:

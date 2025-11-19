@@ -1,9 +1,14 @@
+// File: lib/screens/profile_screen.dart
+
 import 'dart:convert';
-import 'package:fithouse/screens/record_screen.dart';
+import 'package:fithouse/screens/record/record_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:fithouse/api/http_client.dart';
 import 'package:fithouse/models/family_daily_record.dart';
-import 'package:fithouse/main.dart'; // ⭐️ Add this import to access routeObserver
+import 'package:fithouse/main.dart';
+import 'package:printing/printing.dart';
+import 'package:fithouse/services/pdf_report_service.dart';
+import 'package:fithouse/constants/colors.dart';
 
 // 가족 / 내정보 화면
 class ProfileScreen extends StatefulWidget {
@@ -30,13 +35,14 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
     Color(0xFFDCEDC8),
   ];
 
+  final PdfReportService _pdfService = PdfReportService();
+
   @override
   void initState() {
     super.initState();
     _loadFamily();
   }
 
-  // ⭐️ Add didChangeDependencies and dispose
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -49,7 +55,6 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
     super.dispose();
   }
 
-  // 다른 화면에서 돌아올 때 데이터 새로고침
   @override
   void didPopNext() {
     _loadFamily();
@@ -57,20 +62,13 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
 
   String roleLabel(String role) {
     switch (role) {
-      case 'GRANDMA':
-        return '할머니';
-      case 'GRANDPA':
-        return '할아버지';
-      case 'MOM':
-        return '엄마';
-      case 'DAD':
-        return '아빠';
-      case 'DAUGHTER':
-        return '딸';
-      case 'SON':
-        return '아들';
-      default:
-        return role;
+      case 'GRANDMA': return '할머니';
+      case 'GRANDPA': return '할아버지';
+      case 'MOM': return '엄마';
+      case 'DAD': return '아빠';
+      case 'DAUGHTER': return '딸';
+      case 'SON': return '아들';
+      default: return role;
     }
   }
 
@@ -110,6 +108,31 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
     return color;
   }
 
+  Future<void> _exportFamilyReport() async {
+    if (_family.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('내보낼 가족 기록 데이터가 없습니다.')));
+      return;
+    }
+
+    final scaffold = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
+    scaffold.showSnackBar(const SnackBar(content: Text('PDF 리포트를 준비 중입니다...'), duration: Duration(seconds: 1)));
+
+    try {
+      final pdfData = await _pdfService.generateFamilyReport(_family);
+
+      await Printing.sharePdf(
+        bytes: pdfData,
+        filename: 'FitHouse_Weekly_Report.pdf',
+      );
+
+    } catch (e) {
+      scaffold.showSnackBar(
+          SnackBar(content: Text('PDF 생성 중 오류 발생: $e')));
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -133,9 +156,11 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
 
     final me = _family.first;
     final others = _family.where((m) => m.userId != me.userId).toList();
+    final Color primaryColor = Theme.of(context).primaryColor;
+
 
     return Scaffold(
-      body: RefreshIndicator( // ⭐️ RefreshIndicator 추가
+      body: RefreshIndicator(
         onRefresh: _loadFamily,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -186,6 +211,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                           Text('${me.totalMinutes}분',
                               style: const TextStyle(fontSize: 12)),
                           const SizedBox(height: 12),
+                          // ⭐️ [확인] 나의 프로필: '내 기록' 버튼
                           TextButton.icon(
                             onPressed: () async {
                               await Navigator.push(
@@ -199,10 +225,10 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                             icon: const Icon(Icons.fitness_center),
                             label: const Text('내 기록'),
                             style: TextButton.styleFrom(
-                              foregroundColor: Colors.green,
+                              foregroundColor: primaryColor,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(20),
-                                side: BorderSide(color: Colors.green),
+                                side: BorderSide(color: primaryColor),
                               ),
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             ),
@@ -226,6 +252,26 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                 colorFor: _colorFor,
               ),
             ),
+
+            // ⭐️ PDF 버튼을 ListView의 맨 마지막에 배치
+            const SizedBox(height: 32),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ElevatedButton.icon(
+                onPressed: _exportFamilyReport,
+                icon: const Icon(Icons.picture_as_pdf, color: Colors.black),
+                label: const Text('가족 운동 리포트 PDF 다운로드 (분석 포함)', style: TextStyle(fontSize: 16, color: Colors.black)),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -275,81 +321,73 @@ class _FamilyTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final total = member.totalMinutes;
     final theme = Theme.of(context);
+    final primaryColor = Theme.of(context).primaryColor;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => RecordScreen(userId: member.userId),
+      // ⭐️ [수정] InkWell 제거: 카드 전체를 누르는 기능을 비활성화합니다.
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            RingAvatar(
+              segments: member.workoutMinutes.entries
+                  .map((e) => RingSegment(e.key, e.value, colorFor(e.key)))
+                  .toList(),
+              goalMinutes: member.totalMinutes > 0 ? member.totalMinutes : 1,
+              imageUrl: member.profileImageUrl != null
+                  ? '$assetBaseUrl${member.profileImageUrl}'
+                  : null,
+              size: 96,
+              stroke: 10,
+              border: const BorderSide(color: Color(0x11000000)),
             ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              RingAvatar(
-                segments: member.workoutMinutes.entries
-                    .map((e) => RingSegment(e.key, e.value, colorFor(e.key)))
-                    .toList(),
-                goalMinutes: member.totalMinutes > 0 ? member.totalMinutes : 1,
-                imageUrl: member.profileImageUrl != null
-                    ? '$assetBaseUrl${member.profileImageUrl}'
-                    : null,
-                size: 96,
-                stroke: 10,
-                border: const BorderSide(color: Color(0x11000000)),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(member.name, style: theme.textTheme.titleMedium),
-                    const SizedBox(height: 2),
-                    Text(roleText, style: theme.textTheme.bodySmall),
-                    const SizedBox(height: 8),
-                    _Legend(
-                      segments: member.workoutMinutes.entries
-                          .map((e) =>
-                          RingSegment(e.key, e.value, colorFor(e.key)))
-                          .toList(),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => RecordScreen(userId: member.userId),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.remove_red_eye_outlined, size: 18),
-                      label: const Text('기록 보기'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.green,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(color: Colors.green),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(member.name, style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 2),
+                  Text(roleText, style: theme.textTheme.bodySmall),
+                  const SizedBox(height: 8),
+                  _Legend(
+                    segments: member.workoutMinutes.entries
+                        .map((e) =>
+                        RingSegment(e.key, e.value, colorFor(e.key)))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  // ⭐️ [확인] 가족 멤버: '기록 보기' 버튼만 이동 기능 수행
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => RecordScreen(userId: member.userId),
                         ),
-                        padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        textStyle: const TextStyle(fontSize: 12),
+                      );
+                    },
+                    icon: const Icon(Icons.remove_red_eye_outlined, size: 18),
+                    label: const Text('기록 보기'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: primaryColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: primaryColor),
                       ),
+                      padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      textStyle: const TextStyle(fontSize: 12),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Text('$total분', style: const TextStyle(fontSize: 12)),
-            ],
-          ),
+            ),
+            const SizedBox(width: 12),
+            Text('$total분', style: const TextStyle(fontSize: 12)),
+          ],
         ),
       ),
     );
@@ -371,6 +409,7 @@ class _LegendState extends State<_Legend> {
   Widget build(BuildContext context) {
     final sorted = [...widget.segments]
       ..sort((a, b) => b.minutes.compareTo(a.minutes));
+    final Color primaryColor = Theme.of(context).primaryColor;
 
     final visible = _expanded ? sorted : sorted.take(2).toList();
 
@@ -412,6 +451,7 @@ class _LegendState extends State<_Legend> {
                     _expanded ? '접기' : '더보기',
                     style: TextStyle(
                       fontSize: 12,
+                      // 오류 해결: Colors.green.shade700 사용
                       color: Colors.green.shade700,
                       fontWeight: FontWeight.w600,
                     ),
@@ -422,7 +462,7 @@ class _LegendState extends State<_Legend> {
                         ? Icons.keyboard_arrow_up
                         : Icons.keyboard_arrow_down,
                     size: 16,
-                    color: Colors.green,
+                    color: primaryColor,
                   ),
                 ],
               ),

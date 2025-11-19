@@ -13,7 +13,7 @@ import 'screens/step_counter_screen.dart';
 import 'screens/community_screen.dart';
 import 'screens/setting_screen.dart';
 import 'screens/group_screen.dart';
-import 'screens/record_screen.dart';
+import 'screens/record/record_screen.dart';
 import 'constants/colors.dart';
 
 // 전역 RouteObserver 선언
