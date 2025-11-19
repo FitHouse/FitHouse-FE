@@ -9,6 +9,8 @@ import '../providers/chat_provider.dart';
 import '../models/chat_message.dart';
 import '../models/exercise_video.dart';
 
+import 'video_list_screen.dart';
+
 import '../api/http_client.dart' show baseUrl, httpClient, authHeaders;
 
 class ChatbotScreen extends StatefulWidget {
@@ -149,7 +151,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     );
   }
 
-  Widget _buildChatMessage(ChatMessage message) {
+  Widget _buildChatMessage(ChatMessage message, bool isLastMessage) {
     final bool isUser = message.isUser;
     final color = isUser ? const Color(0xFF32CB56) : const Color(0xFFE5E5EA);
     final textColor = isUser ? Colors.white : Colors.black;
@@ -190,6 +192,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 ),
                 if (message.videos.isNotEmpty)
                   _buildVideoRecommendations(message.videos),
+
+                if (!isUser && isLastMessage)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10.0),
+                    child: _buildVideoListButton(context),
+                  ),
               ],
             ),
           ),
@@ -237,6 +245,33 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     );
   }
 
+  Widget _buildVideoListButton(BuildContext context) {
+    return OutlinedButton(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => VideoListScreen()),
+        );
+      },
+      style: OutlinedButton.styleFrom(
+        backgroundColor: Colors.white,
+        side: BorderSide(color: Colors.grey.shade300),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(30),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      ),
+      child: const Text(
+        "운동 영상 모아보기",
+        style: TextStyle(
+          fontSize: 14,
+          color: Colors.black87,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final chatProvider = context.watch<ChatProvider>();
@@ -253,7 +288,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 itemCount: chatMessages.length,
                 itemBuilder: (context, index) {
                   final message = chatMessages[index];
-                  return _buildChatMessage(message);
+                  final bool isLastMessage = index == chatMessages.length - 1;
+                  return _buildChatMessage(message, isLastMessage);
                 },
               ),
             ),
@@ -301,6 +337,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   },
                   child: const Text("새 대화 시작", style: TextStyle(fontSize: 16)),
                 ),
+              ),
+
+            if (chatProvider.newSessionAvailable)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
               ),
 
             _buildTextInput(),
