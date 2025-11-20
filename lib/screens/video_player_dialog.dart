@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'fullscreen_video_page.dart';
 
-// 영상 재생을 담당하는 새로운 팝업(Dialog) 위젯입니다.
 class VideoPlayerDialog extends StatefulWidget {
-  final String videoUrl; // 이전 화면에서 전달받을 영상 URL
+  final String videoUrl;
 
   const VideoPlayerDialog({super.key, required this.videoUrl});
 
@@ -13,24 +13,45 @@ class VideoPlayerDialog extends StatefulWidget {
 
 class _VideoPlayerDialogState extends State<VideoPlayerDialog> {
   late VideoPlayerController _controller;
-  late Future<void> _initializeVideoPlayerFuture;
+  late Future<void> _initializeFuture;
+
+  bool _controlsVisible = true;
+  DateTime _lastTouch = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
-    _initializeVideoPlayerFuture = _controller.initialize().then((_) {
-      // 초기화가 끝나면 바로 재생합니다.
+    _initializeFuture = _controller.initialize().then((_) {
       _controller.play();
       setState(() {});
+      _autoHideControls();
     });
-    _controller.setLooping(true); // 영상 반복 재생 설정
+    _controller.setLooping(true);
   }
 
   @override
   void dispose() {
-    _controller.dispose(); // 위젯이 사라질 때 리소스를 꼭 해제합니다.
+    _controller.dispose();
     super.dispose();
+  }
+
+  void _autoHideControls() async {
+    while (mounted) {
+      await Future.delayed(const Duration(seconds: 3));
+      if (!_controller.value.isPlaying) continue;
+
+      if (DateTime.now().difference(_lastTouch).inSeconds >= 3) {
+        setState(() => _controlsVisible = false);
+      }
+    }
+  }
+
+  void _touch() {
+    setState(() {
+      _controlsVisible = true;
+      _lastTouch = DateTime.now();
+    });
   }
 
   @override
@@ -39,46 +60,71 @@ class _VideoPlayerDialogState extends State<VideoPlayerDialog> {
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(10),
       child: GestureDetector(
-        onTap: () {
-          // 팝업 바깥쪽을 눌러도 닫히도록 설정
-          Navigator.of(context).pop();
-        },
+        onTap: _touch,
         child: Center(
           child: FutureBuilder(
-            future: _initializeVideoPlayerFuture,
+            future: _initializeFuture,
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.done) {
-                // 영상 로딩이 완료되면 플레이어를 보여줍니다.
-                return AspectRatio(
-                  aspectRatio: _controller.value.aspectRatio,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      VideoPlayer(_controller),
-                      // 재생/일시정지 버튼 오버레이
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            if (_controller.value.isPlaying) {
-                              _controller.pause();
-                            } else {
-                              _controller.play();
-                            }
-                          });
-                        },
-                        child: Icon(
-                          _controller.value.isPlaying ? null : Icons.play_arrow,
-                          color: Colors.white.withOpacity(0.7),
-                          size: 80.0,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              } else {
-                // 영상 로딩 중에는 스피너를 보여줍니다.
+              if (snapshot.connectionState != ConnectionState.done) {
                 return const CircularProgressIndicator(color: Colors.white);
               }
+
+              return AspectRatio(
+                aspectRatio: _controller.value.aspectRatio,
+                child: Stack(
+                  children: [
+                    VideoPlayer(_controller),
+
+                    if (!_controller.value.isPlaying || _controlsVisible)
+                      Center(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (_controller.value.isPlaying) {
+                                _controller.pause();
+                              } else {
+                                _controller.play();
+                                _controlsVisible = false;
+                              }
+                            });
+                          },
+                          child: Icon(
+                            _controller.value.isPlaying
+                                ? Icons.pause_circle_filled
+                                : Icons.play_circle_filled,
+                            size: 70,
+                            color: Colors.white.withOpacity(0.8),
+                          ),
+                        ),
+                      ),
+
+                    if (_controlsVisible)
+                      Positioned(
+                        bottom: 12,
+                        right: 12,
+                        child: IconButton(
+                          icon: const Icon(Icons.fullscreen,
+                              color: Colors.white, size: 32),
+                          onPressed: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => FullScreenVideoPage(
+                                  controller: _controller,
+                                ),
+                              ),
+                            );
+
+                            setState(() {
+                              _controlsVisible = true;
+                              _lastTouch = DateTime.now();
+                            });
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              );
             },
           ),
         ),

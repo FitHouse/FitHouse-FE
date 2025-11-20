@@ -1,6 +1,6 @@
+import 'package:fithouse/screens/video_player_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/video_provider.dart';
 import '../models/video_item.dart';
@@ -142,7 +142,6 @@ class _VideoListScreenState extends State<VideoListScreen> {
 
           Row(
             children: [
-              // 초기화 버튼
               Expanded(
                 child: SizedBox(
                   height: 42,
@@ -179,7 +178,6 @@ class _VideoListScreenState extends State<VideoListScreen> {
 
               const SizedBox(width: 10),
 
-              // 검색 버튼
               Expanded(
                 child: SizedBox(
                   height: 42,
@@ -212,7 +210,6 @@ class _VideoListScreenState extends State<VideoListScreen> {
       ),
     );
   }
-
 
   Widget _buildDropdown({
     required String label,
@@ -280,9 +277,11 @@ class _VideoListScreenState extends State<VideoListScreen> {
           "${v.aggrpNm} / ${v.ftnsFctrNm} / ${v.ftnsLvlNm}",
           style: const TextStyle(fontSize: 12),
         ),
-        onTap: () async {
-          final uri = Uri.parse(v.videoUrl);
-          if (await canLaunchUrl(uri)) launchUrl(uri);
+        onTap: () {
+          showDialog(
+            context: context,
+            builder: (_) => VideoPlayerDialog(videoUrl: v.videoUrl),
+          );
         },
       ),
     );
