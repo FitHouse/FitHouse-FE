@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart'; // 공유 기능 패키지
 
 import 'package:fithouse/api/http_client.dart';
-import 'package:fithouse/screens/record_screen.dart';
+import 'package:fithouse/screens/record/record_screen.dart';
 
 class GroupScreen extends StatefulWidget {
   const GroupScreen({super.key});
