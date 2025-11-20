@@ -3,7 +3,8 @@ import 'package:table_calendar/table_calendar.dart';
 
 import 'package:fithouse/main.dart'; // routeObserver
 import 'package:fithouse/models/personal_workout.dart';
-import 'package:fithouse/constants/colors.dart'; // mainGreen 상수를 가져옴
+// mainGreen 상수를 가져옴 (혹은 직접 Colors.green 사용 가능)
+import 'package:fithouse/constants/colors.dart';
 
 // 같은 폴더에 있는 데이터 관리 파일을 상대 경로로 import
 import 'record_data_manager.dart';
@@ -57,10 +58,26 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
   // API 호출 후 결과에 따라 UI/데이터 업데이트
   Future<void> _onCreate() async {
     if (widget.userId != null) return;
+
+    // [수정] 선택된 날짜가 있으면 그 날짜를, 없으면 오늘 날짜를 기본값으로 설정
+    final initDate = _selectedDay ?? DateTime.now();
+
     final result = await showModalBottomSheet<EditResult>(
-      context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
-      builder: (_) => const EditSheet(),
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      // [수정] EditSheet에 선택된 날짜(initDate)를 초기값으로 전달
+      builder: (_) => EditSheet(
+          initial: EditResult(
+            date: initDate,
+            workoutName: '', // 기본값 빈 문자열
+            duration: 60,    // 기본 운동 시간 60분
+            satisfactionLevel: 3, // 기본 만족도 보통
+            memo: '',
+          )
+      ),
     );
+
     if (result == null) return;
     try {
       final created = await _dataManager.createWorkout(
@@ -164,7 +181,7 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
                       ]
                   )
               ),
-              // [수정] 상세 정보가 있다는 것을 명확히 하기 위해 아이콘과 '더보기' 텍스트 추가
+              // 상세 정보가 있다는 것을 명확히 하기 위해 아이콘과 '더보기' 텍스트 추가
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -273,17 +290,19 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
                     defaultTextStyle: const TextStyle(color: Colors.black87, fontSize: 15),
                     weekendTextStyle: const TextStyle(color: Colors.red, fontSize: 15),
 
-                    // 오늘 날짜: primaryColor 사용
+                    // [잔디심기 1] 마커(점) 대신 배경색을 쓸 것이므로 마커 제거
+                    markersMaxCount: 0,
+
+                    // 오늘 날짜 스타일 (운동 기록이 없을 때)
                     todayDecoration: BoxDecoration(
-                      color: Colors.transparent,
+                      color: primaryColor.withOpacity(0.3),
                       shape: BoxShape.circle,
-                      border: Border.all(color: primaryColor, width: 2.0),
                     ),
                     todayTextStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 15),
 
-                    // 선택된 날짜: 진한 녹색 (Colors.green) 사용
+                    // 선택된 날짜 스타일 (운동 기록이 없을 때)
                     selectedDecoration: const BoxDecoration(
-                      color: Colors.green,
+                      color: Colors.transparent,
                       shape: BoxShape.circle,
                     ),
                     selectedTextStyle: const TextStyle(
@@ -291,39 +310,74 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
                         fontWeight: FontWeight.bold,
                         fontSize: 15
                     ),
-
-                    // ❌ markerDecoration을 제거하여 커스텀 빌더 사용
-                    // markerDecoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
-                    markerSize: 6,
-                    markerMargin: const EdgeInsets.only(top: 8),
                   ),
 
-                  // 🎯 calendarBuilders를 사용하여 이벤트 마커 커스텀 빌드
+                  // 🎯 [잔디심기 2] calendarBuilders를 사용하여 잔디(배경색) 효과 구현
                   calendarBuilders: CalendarBuilders(
-                    markerBuilder: (context, day, events) {
-                      if (events.isEmpty) return const SizedBox.shrink();
 
-                      // 이벤트 개수에 따라 마커를 중앙에 모아서 표시
-                      return Positioned(
-                        right: 8, bottom: 8,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: List.generate(
-                            events.length.clamp(0, 3), // 최대 3개까지만 마커 표시
-                                (index) {
-                              // getEventMarkerColor 함수를 사용하여 파스텔 색상을 순환하며 가져옴
-                              final color = getEventMarkerColor(index);
+                    // 1. 일반 날짜 + 운동 기록 있음 (잔디 심기)
+                    defaultBuilder: (context, day, focusedDay) {
+                      final events = data.getEventsForDay(day);
+                      if (events.isNotEmpty) {
+                        // 기록 개수에 따라 색상 농도 조절 (최대 4단계)
+                        final int intensity = events.length.clamp(1, 4);
+                        final Color grassColor = Colors.green.withOpacity(0.2 + (intensity * 0.15));
 
-                              return Container(
-                                width: 6.0,
-                                height: 6.0,
-                                margin: const EdgeInsets.only(left: 1.0),
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  shape: BoxShape.circle,
-                                ),
-                              );
-                            },
+                        return Container(
+                          margin: const EdgeInsets.all(6.0),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: grassColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '${day.day}',
+                            style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
+                          ),
+                        );
+                      }
+                      return null; // 기록 없으면 기본 스타일 사용
+                    },
+
+                    // 2. 오늘 날짜 + 운동 기록 있음
+                    todayBuilder: (context, day, focusedDay) {
+                      final events = data.getEventsForDay(day);
+                      if (events.isNotEmpty) {
+                        return Container(
+                          margin: const EdgeInsets.all(6.0),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.6), // 오늘은 좀 더 진한 잔디
+                            shape: BoxShape.circle,
+                            border: Border.all(color: primaryColor, width: 2.0), // 오늘 표시 테두리
+                          ),
+                          child: Text(
+                            '${day.day}',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                        );
+                      }
+                      return null; // 기존 todayDecoration 따름
+                    },
+
+                    // 3. 선택된 날짜 스타일 커스텀
+                    selectedBuilder: (context, day, focusedDay) {
+                      final events = data.getEventsForDay(day);
+                      // 선택된 날짜에 운동이 있다면 -> 진한 녹색 배경 + 검은 테두리
+                      // 운동이 없다면 -> 투명 배경 + 검은 테두리
+                      return Container(
+                        margin: const EdgeInsets.all(6.0),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: events.isNotEmpty ? Colors.green : Colors.transparent,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.black, width: 2.0),
+                        ),
+                        child: Text(
+                          '${day.day}',
+                          style: TextStyle(
+                              color: events.isNotEmpty ? Colors.white : Colors.black,
+                              fontWeight: FontWeight.bold
                           ),
                         ),
                       );
@@ -348,7 +402,7 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
                     return Container(
                       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 2))]),
-                      child: Material(color: Colors.transparent, borderRadius: BorderRadius.circular(16), child: InkWell(borderRadius: BorderRadius.circular(16), onTap: widget.userId == null ? () => _showActionSheet(item) : null, child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [moodBadge(item.satisfactionLevel), const SizedBox(width: 16), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.workoutName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text('${item.duration}분  ·  ${moodLabel(item.satisfactionLevel)}', style: const TextStyle(fontSize: 13, color: Colors.grey)), if (item.memo != null && item.memo!.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(item.memo!, style: TextStyle(fontSize: 13, color: Colors.grey[600]), maxLines: 1, overflow: TextOverflow.ellipsis))])), if (widget.userId == null) const Icon(Icons.more_vert, color: Colors.grey)])))),
+                      child: Material(color: Colors.transparent, borderRadius: BorderRadius.circular(16), child: InkWell(borderRadius: BorderRadius.circular(16), onTap: widget.userId == null ? () => _showActionSheet(item) : null, child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [moodBadge(item.satisfactionLevel), const SizedBox(width: 16), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.workoutName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text('${item.duration}분 · ${moodLabel(item.satisfactionLevel)}', style: const TextStyle(fontSize: 13, color: Colors.grey)), if (item.memo != null && item.memo!.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(item.memo!, style: TextStyle(fontSize: 13, color: Colors.grey[600]), maxLines: 1, overflow: TextOverflow.ellipsis))])), if (widget.userId == null) const Icon(Icons.more_vert, color: Colors.grey)])))),
                     );
                   },
                 ),
