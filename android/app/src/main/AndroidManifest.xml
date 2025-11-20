@@ -2,6 +2,10 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.codechip.fithouse">
 
+    <!-- 산책로 사용자 위치 권한 -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <!-- 광고 ID 권한을 강제로 제거하는 코드 (추가된 부분) -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
 
