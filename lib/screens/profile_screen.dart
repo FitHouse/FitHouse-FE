@@ -345,10 +345,6 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
   }
 }
 
-// ======================================================
-// 👇 아래 하위 위젯들은 변경 사항 없습니다. 그대로 사용하세요.
-// ======================================================
-
 class _NoFamilyView extends StatelessWidget {
   const _NoFamilyView();
 
