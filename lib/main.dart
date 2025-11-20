@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'providers/chat_provider.dart';
+import 'providers/video_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/chatbot_screen.dart';
 import 'screens/profile_screen.dart';
@@ -26,7 +27,7 @@ void main() async {
 
   runApp(
     ChangeNotifierProvider(
-      create: (context) => ChatProvider(), // ChatProvider를 최상위 스코프에 배치
+      create: (context) => VideoProvider(),
       child: const FitHouseApp(),
     ),
   );
@@ -104,9 +105,11 @@ class AuthGate extends StatelessWidget {
           return const LoginScreen();
         }
 
-        return ChangeNotifierProvider(
+        return MultiProvider(
           key: ValueKey(user.uid),
-          create: (context) => ChatProvider(),
+          providers: [
+            ChangeNotifierProvider(create: (_) => ChatProvider()),
+          ],
           child: MainScreen(),
         );
       },
