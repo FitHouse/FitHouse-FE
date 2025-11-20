@@ -76,6 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
         return e.message ?? '로그인에 실패했습니다.';
     }
   }
+  
 
   OutlineInputBorder _roundedBorder(Color color) => OutlineInputBorder(
     borderRadius: BorderRadius.circular(12),
