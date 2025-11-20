@@ -99,5 +99,6 @@ class AuthApi {
       }
       throw Exception('IMAGE_UPLOAD_ERROR: $e');
     }
+
   }
 }
