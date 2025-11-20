@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:fithouse/screens/record_screen.dart';
+import 'package:fithouse/screens/record/record_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:fithouse/api/http_client.dart';
 import 'package:fithouse/models/family_daily_record.dart';

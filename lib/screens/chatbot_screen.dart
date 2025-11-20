@@ -1,3 +1,4 @@
+import 'package:fithouse/providers/video_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
@@ -250,7 +251,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       onPressed: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => VideoListScreen()),
+          MaterialPageRoute(
+            builder: (context) => ChangeNotifierProvider.value(
+              value: context.read<VideoProvider>(),
+              child: VideoListScreen(),
+            ),
+          ),
         );
       },
       style: OutlinedButton.styleFrom(
