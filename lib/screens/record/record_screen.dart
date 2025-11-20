@@ -164,14 +164,21 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
                       ]
                   )
               ),
-              // 요청하신 화살표 버튼 (항상 보이도록 수정)
-              Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Icon(
+              // [수정] 상세 정보가 있다는 것을 명확히 하기 위해 아이콘과 '더보기' 텍스트 추가
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
                     _detailsOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                     color: headerIconColor,
-                    size: 28, // 아이콘 크기를 살짝 키워 시인성 확보
-                  )
+                    size: 24,
+                  ),
+                  if (!_detailsOpen)
+                    const Text(
+                      "더보기",
+                      style: TextStyle(fontSize: 10, color: Colors.grey),
+                    ),
+                ],
               ),
             ]),
           ),
