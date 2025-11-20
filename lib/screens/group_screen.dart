@@ -1,4 +1,3 @@
-// 가족 초대코드 복사 및 카카오톡 공유 기능 포함 배포용 완성 코드
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -21,7 +20,9 @@ class _GroupScreenState extends State<GroupScreen> {
   final _familyCommentCtrl = TextEditingController();
   final _inviteCodeCtrl = TextEditingController();
 
-  bool _loading = false;
+  // [수정 1] 처음부터 로딩 중인 상태로 시작하여 깜빡임 방지
+  bool _loading = true;
+
   Map<String, dynamic>? _mine;
   String? _createdInviteCode;
 
@@ -30,6 +31,7 @@ class _GroupScreenState extends State<GroupScreen> {
   @override
   void initState() {
     super.initState();
+    // 화면이 그려진 직후 데이터 로딩 시작
     WidgetsBinding.instance.addPostFrameCallback((_) => _fetchMine());
   }
 
@@ -60,7 +62,9 @@ class _GroupScreenState extends State<GroupScreen> {
 
   // 내 가족 정보 불러오기
   Future<void> _fetchMine() async {
-    setState(() => _loading = true);
+    // 이미 로딩 중이 아니라면 로딩 상태로 전환
+    if (!_loading) setState(() => _loading = true);
+
     try {
       final headers = await _authHeader();
       final url = Uri.parse('$baseUrl/family/mine');
@@ -164,6 +168,13 @@ class _GroupScreenState extends State<GroupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // [수정 1 관련] 로딩 중이면 화면 전체에 로딩 인디케이터 표시 (엉뚱한 화면 노출 방지)
+    if (_loading && _mine == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: Colors.green)),
+      );
+    }
+
     final familyName = _mine?['familyName'];
     final inviteCode = _mine?['inviteCode'];
     final members = (_mine?['members'] as List?) ?? const [];
@@ -181,14 +192,9 @@ class _GroupScreenState extends State<GroupScreen> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                _SectionHeader(
-                  title: '내 가족 정보',
-                  trailing: IconButton(
-                    onPressed: _fetchMine,
-                    icon: const Icon(Icons.refresh, color: Colors.green),
-                    tooltip: '새로고침',
-                  ),
-                ),
+
+                // [수정 2] 여기에 있던 _SectionHeader(줄+새로고침버튼) 삭제함
+
                 Card(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   elevation: 2,
@@ -200,7 +206,7 @@ class _GroupScreenState extends State<GroupScreen> {
                       familyName: familyName ?? '',
                       inviteCode: inviteCode,
                       members: members,
-                      onShare: _shareInviteCode, // 공유 함수 전달
+                      onShare: _shareInviteCode,
                     ),
                   ),
                 ),
@@ -351,7 +357,8 @@ class _GroupScreenState extends State<GroupScreen> {
               ],
             ),
           ),
-          if (_loading)
+          // 작업 중일 때 상단 로딩 바 (가족 생성/가입 등 액션 수행 시)
+          if (_loading && _mine != null)
             const Align(
               alignment: Alignment.topCenter,
               child: LinearProgressIndicator(
@@ -366,6 +373,7 @@ class _GroupScreenState extends State<GroupScreen> {
   }
 }
 
+// 구분선 있는 헤더 (가족 생성/가입 섹션용)
 class _SectionHeader extends StatelessWidget {
   final String title;
   final Widget? trailing;
