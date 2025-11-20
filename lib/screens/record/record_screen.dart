@@ -1,5 +1,3 @@
-// File: lib/screens/record/record_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 
@@ -9,7 +7,6 @@ import 'package:fithouse/constants/colors.dart'; // mainGreen 상수를 가져�
 
 // 같은 폴더에 있는 데이터 관리 파일을 상대 경로로 import
 import 'record_data_manager.dart';
-
 
 // -----------------------------------------------------------------------------
 // [2] 메인 화면 (RecordScreen)
@@ -137,31 +134,70 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))],
       ),
       child: Column(children: [
-        Row(children: [
-          _avatar(), const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(titleName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), const SizedBox(height: 4), const Text('오늘도 건강한 하루 되세요!', style: TextStyle(fontSize: 12, color: Colors.grey))])),
-          // 헤더 아이콘 색상에 테마 색상 사용
-          if (widget.userId == null) InkWell(onTap: () => setState(() => _detailsOpen = !_detailsOpen), child: Padding(padding: const EdgeInsets.all(8.0), child: Icon(_detailsOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: headerIconColor))),
-        ]),
+        // 상단 전체를 클릭 가능하게 감싸서 터치 영역을 넓혀줍니다.
+        InkWell(
+          onTap: () => setState(() => _detailsOpen = !_detailsOpen),
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(24),
+            topRight: const Radius.circular(24),
+            bottomLeft: _detailsOpen ? Radius.zero : const Radius.circular(24),
+            bottomRight: _detailsOpen ? Radius.zero : const Radius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(children: [
+              _avatar(),
+              const SizedBox(width: 16),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(titleName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        const Text('오늘도 건강한 하루 되세요!', style: TextStyle(fontSize: 12, color: Colors.grey))
+                      ]
+                  )
+              ),
+              // 요청하신 화살표 버튼 (항상 보이도록 수정)
+              Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Icon(
+                    _detailsOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: headerIconColor,
+                    size: 28, // 아이콘 크기를 살짝 키워 시인성 확보
+                  )
+              ),
+            ]),
+          ),
+        ),
         if (_detailsOpen) ...[
-          const SizedBox(height: 16), const Divider(height: 1, color: Color(0xFFEEEEEE)), const SizedBox(height: 16),
-          Row(children: [
-            Expanded(child: metricChip('키', info?.height != null ? '${info!.height!.toStringAsFixed(0)}cm' : '-')),
-            const SizedBox(width: 8), Expanded(child: metricChip('몸무게', info?.weight != null ? '${info!.weight!.toStringAsFixed(0)}kg' : '-')),
-            const SizedBox(width: 8), Expanded(child: metricChip('나이', info?.age != null ? '${info!.age}세' : '-')),
-            const SizedBox(width: 8), Expanded(child: metricChip('BMI', (info?.height != null && info?.weight != null) ? data.bmi.toStringAsFixed(1) : '-')),
-          ]),
-          const SizedBox(height: 16),
-          _detailRow('생년월일', info?.birthdate != null ? dateStr(info!.birthdate!) : '-'),
-          const SizedBox(height: 8), _detailRow('성별', genderLabel(info?.gender)),
-          const SizedBox(height: 8), _detailRow('가족명', info?.familyName ?? '-'),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Divider(height: 1, color: Color(0xFFEEEEEE)),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Row(children: [
+                  Expanded(child: metricChip('키', info?.height != null ? '${info!.height!.toStringAsFixed(0)}cm' : '-')),
+                  const SizedBox(width: 8), Expanded(child: metricChip('몸무게', info?.weight != null ? '${info!.weight!.toStringAsFixed(0)}kg' : '-')),
+                  const SizedBox(width: 8), Expanded(child: metricChip('나이', info?.age != null ? '${info!.age}세' : '-')),
+                  const SizedBox(width: 8), Expanded(child: metricChip('BMI', (info?.height != null && info?.weight != null) ? data.bmi.toStringAsFixed(1) : '-')),
+                ]),
+                const SizedBox(height: 16),
+                _detailRow('생년월일', info?.birthdate != null ? dateStr(info!.birthdate!) : '-'),
+                const SizedBox(height: 8), _detailRow('성별', genderLabel(info?.gender)),
+                const SizedBox(height: 8), _detailRow('가족명', info?.familyName ?? '-'),
+              ],
+            ),
+          ),
         ],
       ]),
     );
@@ -212,6 +248,9 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
                 child: TableCalendar<PersonalWorkout>(
                   locale: 'ko_KR', firstDay: DateTime.utc(2023, 1, 1), lastDay: DateTime.utc(2030, 12, 31), focusedDay: _focusedDay,
                   selectedDayPredicate: (day) => isSameDay(_selectedDay, day), eventLoader: data.getEventsForDay,
+
+                  // [수정] 요일 행 높이 설정 (월화수목금 짤림 방지)
+                  daysOfWeekHeight: 30.0,
 
                   // 헤더 스타일: primaryColor 사용
                   headerStyle: HeaderStyle(
