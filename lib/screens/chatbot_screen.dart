@@ -15,6 +15,8 @@ import 'video_list_screen.dart';
 import '../api/http_client.dart' show baseUrl, httpClient, authHeaders;
 
 class ChatbotScreen extends StatefulWidget {
+
+  const ChatbotScreen({super.key});
   @override
   State<ChatbotScreen> createState() => _ChatbotScreenState();
 }
