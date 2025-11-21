@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../api/http_client.dart' show baseUrl;
 import 'community_compose_screen.dart';
-
-const String kBaseUrl = 'http://marketalert.iptime.org:8080';
+import 'report_block_dialog_screen.dart' show showBlockUserDialog;
+import 'widgets/report_wizard_dialog.dart' show showReportWizardDialog;
 
 class CommunityDetailArgs {
   final String postId;
+  final int authorId;
   final String authorName;
   final String? authorAvatarUrl;
   final DateTime createdAt;
@@ -17,6 +19,7 @@ class CommunityDetailArgs {
 
   const CommunityDetailArgs({
     required this.postId,
+    required this.authorId,
     required this.authorName,
     required this.createdAt,
     required this.imageUrls,
@@ -72,14 +75,15 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
           FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('삭제')),
         ],
       ),
-    ) ?? false;
+    ) ??
+        false;
 
     if (!ok) return;
 
     Future<http.Response> _req() async {
       final user = FirebaseAuth.instance.currentUser!;
       final token = await user.getIdToken();
-      final uri = Uri.parse('$kBaseUrl/api/community/photos/${widget.args.postId}');
+      final uri = Uri.parse('$baseUrl/api/community/photos/${widget.args.postId}');
       return http.delete(uri, headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
@@ -141,32 +145,80 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
   }
 
   void _onMorePressed() {
+    final a = widget.args;
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       showDragHandle: true,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('수정'),
-              onTap: () {
-                Navigator.pop(context);
-                _goEdit();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline),
-              title: const Text('삭제'),
-              onTap: () {
-                Navigator.pop(context);
-                _deletePost();
-              },
-            ),
-          ],
-        ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
+      builder: (_) {
+        final isMine = a.isMine;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isMine) ...[
+                ListTile(
+                  leading: const Icon(Icons.edit),
+                  title: const Text('수정'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _goEdit();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.delete_outline),
+                  title: const Text('삭제'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _deletePost();
+                  },
+                ),
+              ] else ...[
+                ListTile(
+                  leading: const Icon(Icons.flag_outlined),
+                  title: const Text('신고하기'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final result = await showReportWizardDialog(
+                      context,
+                      photoId: a.postId,
+                      authorId: a.authorId,
+                      authorName: a.authorName,
+                    );
+                    if (!mounted) return;
+                    final blockedId = result?['blockedMemberId'] as int?;
+                    if (blockedId != null) {
+                      // 상위(CommunityTab)에서 목록 정리하도록 전달
+                      Navigator.pop(context, {'blockedMemberId': blockedId});
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.block_outlined),
+                  title: const Text('사용자 차단하기'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final result = await showBlockUserDialog(
+                      context,
+                      targetUserId: a.authorId,
+                      targetUserName: a.authorName,
+                    );
+                    if (!mounted) return;
+                    final blockedId = result?['blockedMemberId'] as int?;
+                    if (blockedId != null) {
+                      // 상위(CommunityTab)에서 목록 정리하도록 전달
+                      Navigator.pop(context, {'blockedMemberId': blockedId});
+                    }
+                  },
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -205,11 +257,10 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
             },
           ),
           actions: [
-            if (a.isMine)
-              IconButton(
-                icon: const Icon(Icons.more_horiz),
-                onPressed: _onMorePressed,
-              ),
+            IconButton(
+              icon: const Icon(Icons.more_horiz),
+              onPressed: _onMorePressed,
+            ),
           ],
         ),
         body: RefreshIndicator(
@@ -272,7 +323,8 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dt = createdAt.toLocal();
-    final dateText = '${dt.year}.${_two(dt.month)}.${_two(dt.day)} ${_two(dt.hour)}:${_two(dt.minute)}';
+    final dateText =
+        '${dt.year}.${_two(dt.month)}.${_two(dt.day)} ${_two(dt.hour)}:${_two(dt.minute)}';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -280,8 +332,7 @@ class _Header extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundImage:
-            avatarUrl != null ? NetworkImage(avatarUrl!) : null,
+            backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl!) : null,
             child: avatarUrl == null ? const Icon(Icons.person) : null,
           ),
           const SizedBox(width: 10),
@@ -289,16 +340,11 @@ class _Header extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(authorName,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 14)),
+                Text(authorName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                 const SizedBox(height: 2),
                 Text(
                   dateText,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: Colors.grey[600]),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
                 ),
               ],
             ),

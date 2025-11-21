@@ -1,3 +1,4 @@
+import 'package:fithouse/screens/block_list_screen.dart';
 import 'package:fithouse/screens/customer_support_screen.dart';
 import 'package:fithouse/screens/delete_account_screen.dart';
 import 'package:fithouse/screens/legal_docs_screen.dart';
@@ -320,6 +321,26 @@ class _SettingScreenState extends State<SettingScreen> {
                     ],
                   ),
                 ),
+              ),
+            ),
+
+            const _BlockSpacer(),
+
+            // ===== 이용자 보호 =====
+            _SectionHeader('이용자 보호', left: 22, fontSize: 18),
+            _Section(
+              child: Column(
+                children: [
+                  ListTile(
+                    title: const Text('차단 관리'),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const BlockListScreen()),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
 

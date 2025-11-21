@@ -441,20 +441,56 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
                       final ok = await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
-                          title: const Text('가족 탈퇴'),
-                          content: const Text('소속 가족에서 탈퇴하시겠어요? 이 작업은 되돌릴 수 없습니다.'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('취소'),
+                          title: const Text('가족 탈퇴', textAlign: TextAlign.center),
+                          content: const Padding(
+                            padding: EdgeInsets.only(top: 4),
+                            child: Text(
+                              '소속 가족에서 탈퇴하시겠어요?\n이 작업은 되돌릴 수 없습니다.',
+                              textAlign: TextAlign.center,
                             ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text('탈퇴'),
+                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          actions: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.black,
+                                      side: const BorderSide(color: buttonGreen),
+                                      backgroundColor: Colors.white,
+                                      minimumSize: const Size.fromHeight(48),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('취소', textAlign: TextAlign.center),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: buttonGreen,
+                                      foregroundColor: Colors.white,
+                                      minimumSize: const Size.fromHeight(48),
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: const Text('탈퇴', textAlign: TextAlign.center),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       );
+
 
                       if (ok != true || !mounted) return;
 
