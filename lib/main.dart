@@ -4,9 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'providers/chat_provider.dart';
-import 'providers/video_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/chatbot_screen.dart';
 import 'screens/profile_screen.dart';
@@ -21,13 +21,24 @@ import 'constants/colors.dart';
 final RouteObserver<ModalRoute<void>> routeObserver =
 RouteObserver<ModalRoute<void>>();
 
+Future<void> requestNotificationPermission() async {
+  final status = await Permission.notification.status;
+
+  if (status.isDenied || status.isRestricted) {
+    await Permission.notification.request();
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  requestNotificationPermission();
+
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   runApp(
     ChangeNotifierProvider(
-      create: (context) => VideoProvider(),
+      create: (context) => ChatProvider(), // ChatProvider를 최상위 스코프에 배치
       child: const FitHouseApp(),
     ),
   );
@@ -105,17 +116,16 @@ class AuthGate extends StatelessWidget {
           return const LoginScreen();
         }
 
-        return MultiProvider(
+        return ChangeNotifierProvider(
           key: ValueKey(user.uid),
-          providers: [
-            ChangeNotifierProvider(create: (_) => ChatProvider()),
-          ],
+          create: (context) => ChatProvider(),
           child: MainScreen(),
         );
       },
     );
   }
 }
+
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -134,7 +144,9 @@ class _MainScreenState extends State<MainScreen> {
     SettingScreen(),
   ];
 
-  void _onItemTapped(int index) => setState(() => _selectedIndex = index);
+  void _onItemTapped(int index) {
+    setState(() => _selectedIndex = index);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -165,7 +177,13 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ],
       ),
-      body: _pages[_selectedIndex],
+
+      // 화면 상태 유지 (Dispose 방지)
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _pages,
+      ),
+
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
