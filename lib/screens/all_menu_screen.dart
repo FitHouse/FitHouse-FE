@@ -3,16 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/colors.dart';
 
-// 이동할 화면들 import
 import 'chatbot_screen.dart';
-import 'profile_screen.dart'; // 가족핏
+import 'profile_screen.dart';
 import 'step_counter_screen.dart';
-import 'community_screen.dart'; // 게시판
+import 'community_screen.dart';
 import 'group_screen.dart';
 import 'record/record_screen.dart';
 import 'setting_screen.dart';
-
-// [추가] 운동 영상 화면과 Provider
 import 'video_list_screen.dart';
 import '../providers/video_provider.dart';
 
@@ -22,116 +19,128 @@ class AllMenuScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('전체 서비스'),
-        centerTitle: true,
-        automaticallyImplyLeading: false, // 하단 탭으로 이동하므로 뒤로가기 버튼 숨김
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            children: [
-              // 1. 건강 & 기록 섹션
-              _buildSection(
-                context,
-                title: '💪 건강 & 기록',
-                items: [
-                  {
-                    'icon': Icons.diversity_1,
-                    'label': '가족핏',
-                    'page': const ProfileScreen(), // 가족/내정보 화면
-                    'color': Colors.indigo
-                  },
-                  {
-                    'icon': Icons.fitness_center,
-                    'label': '운동 기록',
-                    'page': const RecordScreen(), // 앱바에서 이사 온 기능
-                    'color': Colors.orange
-                  },
-                  {
-                    'icon': Icons.directions_walk,
-                    'label': '만보기',
-                    'page': const StepCounterScreen(),
-                    'color': Colors.blue
-                  },
-                  // [추가됨] 운동 영상 모아보기 버튼
-                  {
-                    'icon': Icons.ondemand_video,
-                    'label': '운동 영상',
-                    'page': ChangeNotifierProvider.value(
-                      value: context.read<VideoProvider>(),
-                      child: const VideoListScreen(),
-                    ),
-                    'color': Colors.redAccent
-                  },
-                ],
-              ),
+      // [수정 1] appBar 부분을 아예 삭제했습니다.
 
-              const SizedBox(height: 30),
+      // [수정 2] 상단 상태바(배터리 등)와 겹치지 않게 SafeArea로 감쌉니다.
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              children: [
+                // 상단에 약간의 여백 추가 (너무 딱 붙지 않게)
+                const SizedBox(height: 10),
 
-              // 2. 커뮤니티 & 정보 섹션
-              _buildSection(
-                context,
-                title: '🗣️ 소통 & 정보',
-                items: [
-                  {
-                    'icon': Icons.chat_bubble_outline,
-                    'label': '커뮤니티',
-                    'page': const CommunityScreen(initialIndex: 0), // 게시판 메인
-                    'color': Colors.brown
-                  },
-                  {
-                    'icon': Icons.map_outlined,
-                    'label': '산책로 추천',
-                    'page': const CommunityScreen(initialIndex: 1), // 산책로 탭
-                    'color': Colors.green
-                  },
-                  {
-                    'icon': Icons.chat,
-                    'label': 'AI 챗봇',
-                    'page': ChangeNotifierProvider.value(
-                      value: context.read<ChatProvider>(),
-                      child: const ChatbotScreen(),
-                    ),
-                    'color': Colors.indigo
-                  },
-                ],
-              ),
+                // 1. 건강 & 기록 섹션 (2열 배치 적용됨)
+                _buildSection(
+                  context,
+                  title: '💪 건강 & 기록',
+                  crossAxisCount: 2, // 2열
+                  items: [
+                    {
+                      'icon': Icons.diversity_1,
+                      'label': '가족핏',
+                      'page': const ProfileScreen(),
+                      'color': Colors.indigo
+                    },
+                    {
+                      'icon': Icons.fitness_center,
+                      'label': '운동 기록',
+                      'page': const RecordScreen(),
+                      'color': Colors.orange
+                    },
+                    {
+                      'icon': Icons.directions_walk,
+                      'label': '만보기',
+                      'page': const StepCounterScreen(),
+                      'color': Colors.blue
+                    },
+                    {
+                      'icon': Icons.ondemand_video,
+                      'label': '운동 영상',
+                      'page': ChangeNotifierProvider.value(
+                        value: context.read<VideoProvider>(),
+                        child: const VideoListScreen(),
+                      ),
+                      'color': Colors.redAccent
+                    },
+                  ],
+                ),
 
-              const SizedBox(height: 30),
+                const SizedBox(height: 30),
 
-              // 3. 관리 & 설정 섹션
-              _buildSection(
-                context,
-                title: '⚙️ 관리 & 설정',
-                items: [
-                  {
-                    'icon': Icons.vpn_key,
-                    'label': '가족 코드',
-                    'page': const GroupScreen(), // 앱바에서 이사 온 기능
-                    'color': Colors.teal
-                  },
-                  {
-                    'icon': Icons.settings,
-                    'label': '환경 설정',
-                    'page': const SettingScreen(),
-                    'color': Colors.grey
-                  },
-                ],
-              ),
+                // 2. 커뮤니티 & 정보 섹션 (3열)
+                _buildSection(
+                  context,
+                  title: '🗣️ 소통 & 정보',
+                  crossAxisCount: 3,
+                  items: [
+                    {
+                      'icon': Icons.chat_bubble_outline,
+                      'label': '커뮤니티',
+                      'page': const CommunityScreen(initialIndex: 0),
+                      'color': Colors.brown
+                    },
+                    {
+                      'icon': Icons.map_outlined,
+                      'label': '산책로 추천',
+                      'page': const CommunityScreen(initialIndex: 1),
+                      'color': Colors.green
+                    },
+                    {
+                      'icon': Icons.chat,
+                      'label': 'AI 챗봇',
+                      'page': ChangeNotifierProvider.value(
+                        value: context.read<ChatProvider>(),
+                        child: const ChatbotScreen(),
+                      ),
+                      'color': Colors.indigo
+                    },
+                  ],
+                ),
 
-              const SizedBox(height: 20),
-            ],
+                const SizedBox(height: 30),
+
+                // 3. 관리 & 설정 섹션 (3열)
+                _buildSection(
+                  context,
+                  title: '⚙️ 관리 & 설정',
+                  crossAxisCount: 3,
+                  items: [
+                    {
+                      'icon': Icons.vpn_key,
+                      'label': '가족 코드',
+                      'page': const GroupScreen(),
+                      'color': Colors.teal
+                    },
+                    {
+                      'icon': Icons.settings,
+                      'label': '환경 설정',
+                      'page': const SettingScreen(),
+                      'color': Colors.grey
+                    },
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  // 섹션(제목 + 그리드)을 만드는 위젯
-  Widget _buildSection(BuildContext context,
-      {required String title, required List<Map<String, dynamic>> items}) {
+  // 섹션 빌더 함수 (crossAxisCount 지원)
+  Widget _buildSection(
+      BuildContext context, {
+        required String title,
+        required List<Map<String, dynamic>> items,
+        int crossAxisCount = 3, // 기본값 3열
+      }) {
+    // 2열일 때는 가로로 넓게(1.4), 3열일 때는 세로로 약간 길게(0.9)
+    final double aspectRatio = crossAxisCount == 2 ? 1.4 : 0.9;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -145,14 +154,14 @@ class AllMenuScreen extends StatelessWidget {
         ),
         const SizedBox(height: 15),
         GridView.builder(
-          physics: const NeverScrollableScrollPhysics(), // 전체 스크롤을 따르도록 설정
-          shrinkWrap: true, // 내용물 크기만큼만 공간 차지
+          physics: const NeverScrollableScrollPhysics(),
+          shrinkWrap: true,
           itemCount: items.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3, // 한 줄에 3개
-            mainAxisSpacing: 15, // 세로 간격
-            crossAxisSpacing: 15, // 가로 간격
-            childAspectRatio: 0.9, // 버튼 비율
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: 15,
+            crossAxisSpacing: 15,
+            childAspectRatio: aspectRatio,
           ),
           itemBuilder: (context, index) {
             return _buildMenuCard(context, items[index]);
@@ -162,7 +171,6 @@ class AllMenuScreen extends StatelessWidget {
     );
   }
 
-  // 개별 메뉴 카드 디자인
   Widget _buildMenuCard(BuildContext context, Map<String, dynamic> item) {
     return InkWell(
       onTap: () {
