@@ -3,6 +3,7 @@ import 'package:fithouse/screens/customer_support_screen.dart';
 import 'package:fithouse/screens/delete_account_screen.dart';
 import 'package:fithouse/screens/legal_docs_screen.dart';
 import 'package:fithouse/screens/notice_screen.dart';
+import 'package:fithouse/screens/step_counter_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -81,6 +82,11 @@ class _SettingScreenState extends State<SettingScreen> {
   }
 
   Future<void> _signOut() async {
+    // 1) 포그라운드 서비스 종료
+    try {
+      await StepCounterScreenState.platform.invokeMethod("stopStepService");
+    } catch (_) {}
+
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -166,6 +172,7 @@ class _SettingScreenState extends State<SettingScreen> {
   }
 
   Future<void> _deleteAccount() async {
+    await StepCounterScreenState.platform.invokeMethod("stopStepService");
     if (!mounted) return;
     setState(() => _deleting = true);
     try {

@@ -65,9 +65,19 @@ class MainActivity : FlutterFragmentActivity() {
                         result.success(true)
                     }
 
+                    "stopStepService" -> {
+                        stopStepService()
+                        result.success(true)
+                    }
+
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun stopStepService() {
+        val intent = Intent(this, StepService::class.java)
+        stopService(intent)
     }
 
     private fun checkAllPermissionsGranted(): Boolean {
