@@ -6,17 +6,21 @@ import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+// Providers
 import 'providers/chat_provider.dart';
 import 'providers/video_provider.dart';
+
+// Screens
 import 'screens/auth/login_screen.dart';
 import 'screens/chatbot_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/step_counter_screen.dart';
 import 'screens/community_screen.dart';
-import 'screens/setting_screen.dart';
-import 'screens/all_menu_screen.dart'; // 새로 만든 파일 import
+import 'screens/all_menu_screen.dart';
 import 'screens/group_screen.dart'; // 라우트용
 import 'screens/record/record_screen.dart'; // 라우트용
+
+// Constants
 import 'constants/colors.dart';
 
 // 전역 RouteObserver 선언
@@ -52,7 +56,7 @@ class FitHouseApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '핏하우스',
+      title: 'FitHouse',
       debugShowCheckedModeBanner: false,
       navigatorObservers: [routeObserver],
       theme: ThemeData(
@@ -61,7 +65,7 @@ class FitHouseApp extends StatelessWidget {
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
         appBarTheme: const AppBarTheme(
-          backgroundColor: mainGreen,
+          backgroundColor: const Color(0xFFC7EF98),
           foregroundColor: black,
           elevation: 0,
         ),
@@ -83,7 +87,6 @@ class FitHouseApp extends StatelessWidget {
       routes: {
         '/login': (_) => const LoginScreen(),
         '/auth': (_) => const AuthGate(),
-        // [참고] 필요하다면 여기에 라우트 추가 가능
       },
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -138,13 +141,12 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  // [변경 2] 페이지 리스트 수정
   final List<Widget> _pages = [
-    ChatbotScreen(),
-    ProfileScreen(),
-    StepCounterScreen(),
-    CommunityScreen(),
-    const AllMenuScreen(), // 기존 SettingScreen 대신 전체 메뉴 화면으로 교체
+    const ChatbotScreen(),
+    const ProfileScreen(),
+    const StepCounterScreen(),
+    const CommunityScreen(),
+    const AllMenuScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -155,9 +157,37 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('핏하우스'),
-        centerTitle: true,
-        // [변경 3] leading(그룹버튼)과 actions(기록버튼) 삭제 -> 앱바가 깔끔해짐
+        // [디자인 수정] 화이트 배경 + 로고 (알림 삭제됨)
+        backgroundColor: const Color(0xFFA9C18D),
+        elevation: 0,
+        centerTitle: false, // 왼쪽 정렬
+
+        title: Row(
+          children: [
+            // 로고 이미지
+            Image.asset(
+              'assets/images/splash_logo.png',
+              height: 32,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return const Icon(Icons.home_filled,
+                    color: mainGreen, size: 28);
+              },
+            ),
+            const SizedBox(width: 8),
+            // 텍스트
+            const Text(
+              'FitHouse',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold, // [수정됨] w900 -> bold (적당한 굵기)
+                fontSize: 22,
+                fontFamily: 'PyeojinGothic',
+              ),
+            ),
+          ],
+        ),
+        // actions: [] 부분을 삭제하여 알림 아이콘을 없앴습니다.
       ),
 
       // 화면 상태 유지 (Dispose 방지)
@@ -171,10 +201,10 @@ class _MainScreenState extends State<MainScreen> {
         onTap: _onItemTapped,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.chat), label: '챗봇'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: '가족운동'),
-          BottomNavigationBarItem(icon: Icon(Icons.directions_walk), label: '만보기'),
+          BottomNavigationBarItem(icon: Icon(Icons.diversity_1), label: '가족운동'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.directions_walk), label: '만보기'),
           BottomNavigationBarItem(icon: Icon(Icons.cabin), label: '커뮤니티'),
-          // [변경 4] 아이콘과 라벨 변경 (설정 -> 전체)
           BottomNavigationBarItem(icon: Icon(Icons.menu), label: '전체'),
         ],
       ),
