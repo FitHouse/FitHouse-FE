@@ -13,8 +13,9 @@ import 'screens/profile_screen.dart';
 import 'screens/step_counter_screen.dart';
 import 'screens/community_screen.dart';
 import 'screens/setting_screen.dart';
-import 'screens/group_screen.dart';
-import 'screens/record/record_screen.dart';
+import 'screens/all_menu_screen.dart'; // 새로 만든 파일 import
+import 'screens/group_screen.dart'; // 라우트용
+import 'screens/record/record_screen.dart'; // 라우트용
 import 'constants/colors.dart';
 
 // 전역 RouteObserver 선언
@@ -70,6 +71,7 @@ class FitHouseApp extends StatelessWidget {
       routes: {
         '/login': (_) => const LoginScreen(),
         '/auth': (_) => const AuthGate(),
+        // [참고] 필요하다면 여기에 라우트 추가 가능
       },
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -90,13 +92,10 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // OS 스플래시 이후 바로 첫 프레임을 그리기 위해 StreamBuilder만 사용
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (_, snap) {
-        // 대기 상태에서도 추가 스플래시/로딩 UI를 띄우지 않음
         if (snap.connectionState == ConnectionState.waiting) {
-          // 첫 프레임을 가능한 빨리 그리도록 빈 위젯 반환
           return const SizedBox.shrink();
         }
 
@@ -126,12 +125,13 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
+  // [변경 2] 페이지 리스트 수정
   final List<Widget> _pages = [
     ChatbotScreen(),
     ProfileScreen(),
     StepCounterScreen(),
     CommunityScreen(),
-    SettingScreen(),
+    const AllMenuScreen(), // 기존 SettingScreen 대신 전체 메뉴 화면으로 교체
   ];
 
   void _onItemTapped(int index) => setState(() => _selectedIndex = index);
@@ -142,28 +142,7 @@ class _MainScreenState extends State<MainScreen> {
       appBar: AppBar(
         title: const Text('핏하우스'),
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.group_add),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const GroupScreen()),
-            );
-          },
-          tooltip: '그룹 만들기/참여',
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.fitness_center),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const RecordScreen()),
-              );
-            },
-            tooltip: '개인운동 기록',
-          ),
-        ],
+        // [변경 3] leading(그룹버튼)과 actions(기록버튼) 삭제 -> 앱바가 깔끔해짐
       ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
@@ -171,10 +150,11 @@ class _MainScreenState extends State<MainScreen> {
         onTap: _onItemTapped,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.chat), label: '챗봇'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: '가족/내정보'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: '가족운동'),
           BottomNavigationBarItem(icon: Icon(Icons.directions_walk), label: '만보기'),
           BottomNavigationBarItem(icon: Icon(Icons.cabin), label: '커뮤니티'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: '설정'),
+          // [변경 4] 아이콘과 라벨 변경 (설정 -> 전체)
+          BottomNavigationBarItem(icon: Icon(Icons.menu), label: '전체'),
         ],
       ),
     );
