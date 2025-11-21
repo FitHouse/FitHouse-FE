@@ -9,9 +9,18 @@
     <!-- 광고 ID 권한을 강제로 제거하는 코드 (추가된 부분) -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
 
-    <!-- 원래 있던 권한들은 그대로 유지 -->
+    <!-- 네트워크 & 기본 권한 -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- 걸음 센서 (Activity Recognition) -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+
+    <!-- Foreground Service 기본 권한 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+
 
     <application
         android:label="FitHouse"
@@ -35,17 +44,23 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-
-            <!-- Health Connect 관련 intent-filter (원래 있던 코드) -->
-            <intent-filter>
-                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
-            </intent-filter>
         </activity>
 
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <service
+            android:name=".StepService"
+            android:exported="false"
+            android:foregroundServiceType="health" />
     </application>
+
+    <queries>
+        <intent>
+            <action android:name="android.settings.APP_NOTIFICATION_SETTINGS" />
+        </intent>
+    </queries>
 
     <!-- Health Connect 관련 queries (원래 있던 코드) -->
     <queries>

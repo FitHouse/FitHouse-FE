@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:fithouse/models/family_steps.dart';
 import 'package:fithouse/screens/widgets/family_steps_widget.dart';
-// import 'package:fithouse/screens/widgets/family_progress_card.dart';
+import 'package:fithouse/screens/widgets/family_progress_card.dart';
 import 'package:fithouse/api/http_client.dart' show baseUrl, httpClient, authHeaders;
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 
 class StepCounterRepo {
   const StepCounterRepo();
@@ -83,41 +83,50 @@ class StepCounterScreen extends StatefulWidget {
   const StepCounterScreen({super.key});
 
   @override
-  State<StepCounterScreen> createState() => _StepCounterScreenState();
+  State<StepCounterScreen> createState() => StepCounterScreenState();
 }
 
-class _StepCounterScreenState extends State<StepCounterScreen>
+class StepCounterScreenState extends State<StepCounterScreen>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
-  static const _eventChannel = EventChannel('step_counter/events');
+
+  static StepCounterScreenState? instance;
+
+  static const platform = MethodChannel("steps_channel");
+
+  int initialServerSteps = 0;     // 서버에서 오늘 걸음 가져온 값
+  int? baseSensorSteps;          // 센서 누적 시작 지점
 
   final StepCounterRepo _repo = const StepCounterRepo();
   final CommunityRepo _communityRepo = const CommunityRepo();
-
+  bool _disposed = false;
   int? _myUserId;
   int? _myFamilyId;
   int _myGoal = 10000;
+
   int todaySteps = 0;
-  String range = 'today';
-  List<FamilySteps> _family = [];
-
-  FamilyStepsSummary? _familySummary; // 주간 요약 저장용
-
-  StreamSubscription? _sub;
-  Timer? _tick;
-  Timer? _midnightTimer;
-  int _sensorStepsNow = 0;
-
-  int _startServerSteps = 0;
-  int _startSensorSteps = 0;
-
-  static const int _stepChangeThreshold = 10;
-  static const Duration _minSendInterval = Duration(minutes: 1);
-  DateTime _lastSendTime = DateTime.fromMillisecondsSinceEpoch(0);
   int _lastSent = -1;
 
-  bool _hasFlushedThisCycle = false;
-  DateTime? _lastFetchedDate;
+  List<FamilySteps> _family = [];
+  FamilyStepsSummary? _familySummary;
+
+  Timer? _prefsTick;
+  Timer? _sendTick;
   bool _loading = true;
+
+  DateTime? _lastFetchedDate;
+  static const Duration _minSendInterval = Duration(minutes: 1);
+  DateTime _lastSendTime = DateTime.fromMillisecondsSinceEpoch(0);
+
+
+  Future<int> _getTodayStepsFromNative() async {
+    try {
+      final steps = await platform.invokeMethod<int>("getTodaySteps");
+      return steps ?? 0;
+    } catch (e) {
+      debugPrint("Native read error: $e");
+      return 0;
+    }
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -126,55 +135,22 @@ class _StepCounterScreenState extends State<StepCounterScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    instance = this;
 
     _loadAll().then((_) {
       _lastFetchedDate = DateTime.now();
-      _startSensorListening();
-      _startAutoTick();
-      _scheduleMidnightRefresh();
+      _startReadingPrefs();
+      _startSendTick();
     });
   }
 
   @override
   void dispose() {
-    if (!_hasFlushedThisCycle) {
-      debugPrint(" 화면 dispose → 서버 저장");
-      _flush(sync: true);
-      _hasFlushedThisCycle = true;
-    }
+    _disposed = true;
+    _prefsTick?.cancel();
+    _sendTick?.cancel();
     WidgetsBinding.instance.removeObserver(this);
-    _tick?.cancel();
-    _sub?.cancel();
-    _midnightTimer?.cancel();
     super.dispose();
-  }
-
-  void _scheduleMidnightRefresh() {
-    final now = DateTime.now();
-    final tomorrow = DateTime(now.year, now.month, now.day + 1);
-    final duration = tomorrow.difference(now);
-
-    _midnightTimer?.cancel();
-    _midnightTimer = Timer(duration, () async {
-      debugPrint("자정 도달 → 오늘 기록 초기화 + 주간 데이터 갱신");
-
-      _startSensorSteps = 0;
-      _startServerSteps = 0;
-      _sensorStepsNow = 0;
-
-      setState(() {
-        todaySteps = 0;
-        if (_myUserId != null) {
-          final idx = _family.indexWhere((f) => f.userId == _myUserId);
-          if (idx != -1) {
-            _family[idx] = _family[idx].copyWith(today: 0);
-          }
-        }
-      });
-
-      await _fetchSteps();
-      _scheduleMidnightRefresh();
-    });
   }
 
   Future<void> _loadAll() async {
@@ -184,6 +160,7 @@ class _StepCounterScreenState extends State<StepCounterScreen>
       _myFamilyId = summary.familyId;
 
       final currentUser = FirebaseAuth.instance.currentUser;
+
       if (currentUser != null) {
         final me = summary.members.firstWhere(
               (m) => m.name == currentUser.displayName,
@@ -192,136 +169,125 @@ class _StepCounterScreenState extends State<StepCounterScreen>
         _myUserId = me.id;
       }
 
-      await _fetchSteps();
+      await _fetchStepsFromServer();
     } catch (e) {
-      debugPrint("❌ 초기 데이터 불러오기 실패: $e");
-      setState(() {
-        _family = [];
-      });
+      debugPrint("❌ 초기 데이터 로딩 실패: $e");
+      _family = [];
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _fetchSteps() async {
+  Future<void> _fetchStepsFromServer() async {
     if (_myFamilyId == null) {
+      if (!mounted) return;
       setState(() => _family = []);
       return;
     }
+
     try {
       final uri = Uri.parse('$baseUrl/api/families/$_myFamilyId/steps/summary')
           .replace(queryParameters: {'range': 'week'});
 
       final res = await httpClient.get(uri, headers: await authHeaders());
-      if (res.statusCode != 200) {
-        throw Exception("summary fetch failed: ${res.body}");
-      }
+      if (res.statusCode != 200) throw Exception("weekly fetch failed");
 
       final data = jsonDecode(res.body);
       final summary = FamilyStepsSummary.fromJson(data);
 
-      final todayList =
-      await _repo.fetchFamilySteps(_myFamilyId!, range: 'today');
+      // await 후 dispose 되었을 가능성 → 무조건 체크해야 함
+      if (!mounted) return;
+
+      final todayList = await _repo.fetchFamilySteps(_myFamilyId!, range: 'today');
+
+      if (!mounted) return;  // ← 반드시 들어가야 함
 
       if (todayList.isEmpty) {
         setState(() {
           _familySummary = summary;
           _family = [];
           todaySteps = 0;
-          _startServerSteps = 0;
         });
         return;
       }
 
-      final meToday = _myUserId == null
+      final my = _myUserId == null
           ? todayList.first
-          : (todayList.firstWhere(
-            (f) => f.userId == _myUserId,
-        orElse: () => todayList.first,
-      ));
+          : todayList.firstWhere((f) => f.userId == _myUserId,
+          orElse: () => todayList.first);
 
-      _startServerSteps = meToday.today;
+      if (!mounted) return;  // ← setState 전에 다시 체크
 
       setState(() {
         _familySummary = summary;
         _family = todayList;
-        todaySteps = meToday.today;
-
-        if (_myUserId != null && summary.members.isNotEmpty) {
-          final meWeekly = summary.members
-              .firstWhere(
-                (m) => m.userId == _myUserId,
-            orElse: () => summary.members.first,
-          )
-              .weekly;
-
-          final idx = _family.indexWhere((f) => f.userId == _myUserId);
-          if (idx != -1) {
-            _family[idx] = _family[idx].copyWith(weekly: meWeekly);
-          }
+        // 서버에서 받아온 오늘 걸음(누적) → 초기 todaySteps로 설정
+        if (todaySteps < my.today) {
+          todaySteps = my.today;
         }
       });
+
+      await platform.invokeMethod("setServerToday", my.today);
+      await Future.delayed(Duration(milliseconds: 200)); // 데이터 저장 안정화
+
+      await platform.invokeMethod("prepareStepService");
+
     } catch (e) {
-      debugPrint("걸음 수 불러오기 실패: $e");
-      setState(() {
-        _family = [];
-      });
+      debugPrint("걸음 수 서버 로드 실패: $e");
+
+      if (!mounted) return;
+
+      setState(() => _family = []);
     }
   }
 
-  void _startSensorListening() {
-    _sub = _eventChannel.receiveBroadcastStream().listen((event) {
-      final sensorNow = (event as num).toInt();
 
-      if (_startSensorSteps == 0) {
-        _startSensorSteps = sensorNow;
+  /// SharedPreferences("steps") → todaySteps 읽기
+  void _startReadingPrefs() {
+    _prefsTick?.cancel();
+    _prefsTick = Timer.periodic(const Duration(seconds: 5), (_) async {
+      if (!mounted || _disposed) return;
+
+      final localSteps = await _getTodayStepsFromNative();
+
+      if (!mounted || _disposed) return;
+
+      if (localSteps != todaySteps) {
+        if (!mounted || _disposed) return;
+        setState(() {
+          todaySteps = localSteps;
+          final idx = _family.indexWhere((f) => f.userId == _myUserId);
+          if (idx != -1) {
+            _family[idx] = _family[idx].copyWith(today: todaySteps);
+          }
+        });
       }
-
-      _sensorStepsNow = sensorNow;
-
-      final adjusted =
-          _startServerSteps + (sensorNow - _startSensorSteps).clamp(0, 999999);
-
-      setState(() {
-        todaySteps = adjusted;
-        final idx = _family.indexWhere((f) => f.userId == _myUserId);
-        if (idx != -1) {
-          _family[idx] = _family[idx].copyWith(today: todaySteps);
-        }
-      });
     });
   }
 
-  void _startAutoTick() {
-    _tick?.cancel();
-    _tick = Timer.periodic(const Duration(minutes: 1), (_) => _flush());
+  /// 주기적으로 서버 전송
+  void _startSendTick() {
+    _sendTick?.cancel();
+    _sendTick = Timer.periodic(const Duration(minutes: 1), (_) => _flush());
   }
 
   Future<void> _flush({bool sync = false}) async {
     if (_myUserId == null) return;
 
-    final adjustedSteps = _startServerSteps +
-        (_sensorStepsNow - _startSensorSteps).clamp(0, 999999);
-
-    if (adjustedSteps == _lastSent) {
-      debugPrint(" 변동 없음, 전송 안 함 (steps=$adjustedSteps)");
-      return;
-    }
+    final stepsToSend = todaySteps;
+    if (stepsToSend == _lastSent) return;
 
     final now = DateTime.now();
-    if (!sync) {
-      if (now.difference(_lastSendTime) < _minSendInterval) return;
-      if ((adjustedSteps - _lastSent).abs() < _stepChangeThreshold) return;
-    }
+    if (!sync && now.difference(_lastSendTime) < _minSendInterval) return;
+    if (!sync && (stepsToSend - _lastSent).abs() < 10) return;
 
     try {
       final body = jsonEncode({
-        'steps': adjustedSteps,
+        'steps': stepsToSend,
         'clientAt': now.toIso8601String(),
       });
 
       final uri = Uri.parse('$baseUrl/api/steps/today');
-
       final res = await httpClient.put(
         uri,
         headers: {
@@ -333,7 +299,7 @@ class _StepCounterScreenState extends State<StepCounterScreen>
       );
 
       if (res.statusCode == 200) {
-        _lastSent = adjustedSteps;
+        _lastSent = stepsToSend;
         _lastSendTime = now;
       }
     } catch (e) {
@@ -341,9 +307,8 @@ class _StepCounterScreenState extends State<StepCounterScreen>
     }
   }
 
-  bool _isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -352,11 +317,9 @@ class _StepCounterScreenState extends State<StepCounterScreen>
     } else if (state == AppLifecycleState.resumed) {
       final now = DateTime.now();
       if (_lastFetchedDate == null || !_isSameDay(_lastFetchedDate!, now)) {
-        debugPrint("날짜 변경 감지 → 데이터 새로 fetch");
-        _fetchSteps();
+        _fetchStepsFromServer();
         _lastFetchedDate = now;
       }
-      _startAutoTick();
     }
   }
 
@@ -393,7 +356,6 @@ class _StepCounterScreenState extends State<StepCounterScreen>
     final familyCount = _family.isNotEmpty ? _family.length : 1;
     final weeklyGoal = _myGoal * familyCount * 7;
 
-    // 백엔드 family.totalSteps 사용
     final weeklySteps = _familySummary?.family?.totalSteps ?? 0;
 
     final totalTodaySteps = _family.isNotEmpty
@@ -413,19 +375,18 @@ class _StepCounterScreenState extends State<StepCounterScreen>
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // 주간 진행률 박스 주석 처리
-          // FamilyProgressCard(
-          //   steppedWeeklyProgress: steppedWeeklyProgress,
-          //   levelImage: levelImage,
-          //   weeklySteps: weeklySteps,
-          //   weeklyGoal: weeklyGoal,
-          //   totalTodaySteps: totalTodaySteps,
-          //   todayGoalWithFamily: todayGoalWithFamily,
-          // ),
+          FamilyProgressCard(
+            steppedWeeklyProgress: steppedWeeklyProgress,
+            levelImage: levelImage,
+            weeklySteps: weeklySteps,
+            weeklyGoal: weeklyGoal,
+            totalTodaySteps: totalTodaySteps,
+            todayGoalWithFamily: todayGoalWithFamily,
+          ),
           Expanded(
             child: FamilyStepsWidget(
               members: _family,
-              range: range,
+              range: 'today',
               goal: _myGoal,
               myUserId: _myUserId,
             ),
