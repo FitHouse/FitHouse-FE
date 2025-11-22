@@ -67,8 +67,7 @@ class WeatherApi {
     final uri = Uri.http(authority, path, queryParameters);
 
     try {
-      // 👇👇👇 수정됨: 타임아웃을 30초로 대폭 연장 👇👇👇
-      final response = await http.get(uri).timeout(const Duration(seconds: 30));
+      final response = await http.get(uri).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));

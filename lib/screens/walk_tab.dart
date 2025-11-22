@@ -144,7 +144,7 @@ class _WalkTabState extends State<WalkTab> {
     });
   }
 
-  // 📍 내 위치(GPS)를 받아서 드롭다운을 자동 설정하는 함수 (스마트 역추적 포함)
+// 📍 [최종 수정] 내 위치(GPS)를 받아서 드롭다운을 자동 설정하는 함수
   Future<void> _searchByCurrentLocation() async {
     setState(() {
       _isLoading = true;
@@ -190,97 +190,113 @@ class _WalkTabState extends State<WalkTab> {
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks.first;
 
-        String? gpsSido = place.administrativeArea; // 예: 서울특별시
-        String? gpsSigungu = place.locality ?? place.subAdministrativeArea; // 예: 강서구 (가끔 null)
-        String? gpsDong = place.thoroughfare ?? place.subLocality; // 예: 마곡동
+        // 🔥 [디버깅] GPS가 주는 모든 정보를 다 찍어봅니다.
+        print("📦 GPS 원본 데이터(Placemark): $place");
 
-        print("GPS 발견 주소: $gpsSido / $gpsSigungu / $gpsDong");
-
-        // 4. 드롭다운 리스트와 매칭
-
-        // (1) 시/도 매칭
+        // 1. 시/도 찾기
+        // administrativeArea가 비어있으면 전체 주소에서 시도 이름을 찾습니다.
+        String fullAddress = place.toString(); // 전체 주소 텍스트
         String? matchedSido;
+
         try {
           matchedSido = _sidoList.firstWhere(
-                (sido) => (gpsSido ?? '').contains(sido) || sido.contains(gpsSido ?? ''),
+                (sido) =>
+            (place.administrativeArea ?? '').contains(sido) ||
+                sido.contains(place.administrativeArea ?? '') ||
+                fullAddress.contains(sido), // 전체 텍스트에서도 검색
           );
         } catch (e) { /* 매칭 실패 */ }
 
         if (matchedSido != null) {
-          // (2) 시/군/구 매칭 (스마트 로직 적용)
-          List<String> newSigunguList = _regionHierarchy[matchedSido]?.keys.toList() ?? [];
+          // 2. 시/군/구 찾기 (강력한 탐색!)
+          // GPS 변수(locality 등)를 믿지 않고, 우리 리스트에 있는 '구' 이름이 GPS 정보 어디라도 포함되어 있는지 확인합니다.
+          List<String> validSigunguList = _regionHierarchy[matchedSido]?.keys.toList() ?? [];
           String? matchedSigungu;
 
-          // A. GPS가 준 정보로 1차 시도
-          if (gpsSigungu != null && gpsSigungu.isNotEmpty) {
-            try {
-              matchedSigungu = newSigunguList.firstWhere(
-                    (sigungu) => (gpsSigungu ?? '').contains(sigungu) || sigungu.contains(gpsSigungu ?? ''),
-              );
-            } catch (e) {}
-          }
+          try {
+            matchedSigungu = validSigunguList.firstWhere((validSigungu) {
+              // GPS 정보의 구석구석을 다 뒤져서 '강서구' 같은 단어가 있는지 확인
+              return (place.locality ?? '').contains(validSigungu) ||
+                  (place.subLocality ?? '').contains(validSigungu) ||
+                  (place.subAdministrativeArea ?? '').contains(validSigungu) ||
+                  fullAddress.contains(validSigungu);
+            });
+          } catch (e) {}
 
-          // B. 1차 실패 시, '동' 정보를 이용해 '구'를 역추적 (핵심!)
-          if (matchedSigungu == null && gpsDong != null && gpsDong.isNotEmpty) {
-            print("⚠️ 구 정보 없음. 동($gpsDong)으로 구 찾기 시도...");
+          // 3. 읍/면/동 찾기 (강력한 탐색!)
+          List<String> newDongList = [];
+          String? matchedDong;
+
+          if (matchedSigungu != null) {
+            newDongList = _regionHierarchy[matchedSido]?[matchedSigungu] ?? [];
             try {
-              // 해당 시/도의 모든 구를 뒤져서, 그 구 안에 '마곡동'이 있는지 확인
-              matchedSigungu = newSigunguList.firstWhere((sigunguKey) {
-                List<String> dongsInGu = _regionHierarchy[matchedSido]?[sigunguKey] ?? [];
-                return dongsInGu.any((dong) => dong.contains(gpsDong) || gpsDong.contains(dong));
+              matchedDong = newDongList.firstWhere((validDong) {
+                return (place.thoroughfare ?? '').contains(validDong) ||
+                    (place.subLocality ?? '').contains(validDong) ||
+                    fullAddress.contains(validDong);
               });
-              print("✅ 역추적 성공! 찾은 구: $matchedSigungu");
-            } catch (e) {
-              print("❌ 역추적 실패");
+            } catch (e) {}
+          } else {
+            // 구를 못 찾았는데 동 정보는 있는 경우 역추적 (마지막 보루)
+            String gpsDong = place.thoroughfare ?? place.subLocality ?? '';
+            if (gpsDong.isNotEmpty) {
+              try {
+                matchedSigungu = validSigunguList.firstWhere((sigunguKey) {
+                  List<String> dongsInGu = _regionHierarchy[matchedSido]?[sigunguKey] ?? [];
+                  return dongsInGu.any((validDong) => gpsDong.contains(validDong));
+                });
+                if (matchedSigungu != null) {
+                  newDongList = _regionHierarchy[matchedSido]?[matchedSigungu] ?? [];
+                  // 구를 찾았으니 동도 다시 매칭 시도
+                  try {
+                    matchedDong = newDongList.firstWhere((d) => gpsDong.contains(d));
+                  } catch (e) {}
+                }
+              } catch (e) {}
             }
           }
 
-          // 매칭된 시군구가 있을 때만 진행
-          if (matchedSigungu != null) {
-            // (3) 읍/면/동 매칭
-            List<String> newDongList = _regionHierarchy[matchedSido]?[matchedSigungu] ?? [];
-            String? matchedDong;
-            try {
-              matchedDong = newDongList.firstWhere(
-                    (dong) => (gpsDong ?? '').contains(dong) || dong.contains(gpsDong ?? ''),
-              );
-            } catch (e) {}
+          // 4. 상태 업데이트 및 검색
+          setState(() {
+            _selectedSido = matchedSido;
+            _sigunguList = validSigunguList;
 
-            // 5. 상태 업데이트 및 검색
-            setState(() {
-              _selectedSido = matchedSido;
-              _sigunguList = newSigunguList;
+            _selectedSigungu = matchedSigungu;
+            _dongList = newDongList;
 
-              _selectedSigungu = matchedSigungu;
-              _dongList = newDongList;
+            _selectedDong = matchedDong;
 
-              _selectedDong = matchedDong;
-
+            if (matchedSigungu == null) {
+              _message = '상세 지역(구/군)을 자동으로 찾지 못했습니다. 직접 선택해주세요.';
+            } else {
               _message = '위치 설정 완료! 검색을 시작합니다.';
-            });
+            }
+          });
 
-            // 자동 검색 실행
+          // 구 정보가 있으면 검색 실행, 없으면 사용자 선택 유도
+          if (matchedSigungu != null) {
             _filterParks();
-            return; // 성공했으므로 종료
+          } else {
+            // 구를 못 찾았으면 로딩 끄기
+            setState(() => _isLoading = false);
           }
+
+        } else {
+          setState(() {
+            _isLoading = false;
+            _message = '현재 위치의 시/도 정보를 찾을 수 없습니다.';
+          });
         }
-
-        // 매칭 실패 시 로딩 끄고 에러 메시지
-        setState(() {
-          _isLoading = false;
-          _message = '현재 위치($gpsSido $gpsDong)를 데이터에서 찾을 수 없습니다.';
-        });
-
       } else {
         setState(() {
           _isLoading = false;
-          _message = '주소 정보를 찾을 수 없습니다.';
+          _message = '주소 정보를 받아올 수 없습니다.';
         });
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _message = '위치 정보를 가져오는 데 실패했습니다.';
+        _message = '위치 정보를 가져오는 중 오류가 발생했습니다.';
       });
       print('GPS Error: $e');
     }
