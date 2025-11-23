@@ -32,9 +32,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     super.initState();
     currentUserUid = FirebaseAuth.instance.currentUser?.uid;
     _loadNickname();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _maybeShowWelcome();
-    });
   }
 
   @override
@@ -57,6 +54,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     } catch (e) {
       nickname = null;
     }
+
+    _maybeShowWelcome();
   }
 
   void _maybeShowWelcome() {
