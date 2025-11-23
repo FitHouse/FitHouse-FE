@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:fithouse/screens/family_edit_screen.dart';
 import 'package:fithouse/screens/record/record_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:fithouse/api/http_client.dart';
@@ -15,8 +16,9 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
   List<FamilyDailyRecord> _family = [];
+  Map<String, dynamic>? _familyInfo;
   bool _loading = true;
-  bool _isCreatingReport = false; // 리포트 생성 로딩 상태
+  bool _isCreatingReport = false;
 
   final Map<String, Color> _colorCache = {};
   int _colorIndex = 0;
@@ -30,6 +32,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
   void initState() {
     super.initState();
     _loadFamily();
+    _loadFamilyInfo();
   }
 
   @override
@@ -47,6 +50,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
   @override
   void didPopNext() {
     _loadFamily();
+    _loadFamilyInfo();
   }
 
   String roleLabel(String role) {
@@ -84,6 +88,22 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
         _family = [];
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _loadFamilyInfo() async {
+    try {
+      final uri = Uri.parse('$baseUrl/family/mine');
+      final res = await httpClient.get(uri, headers: await authHeaders());
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(res.bodyBytes));
+        setState(() {
+          _familyInfo = data;
+        });
+      }
+    } catch (_) {
+      _familyInfo = null;
     }
   }
 
@@ -147,7 +167,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
     return color;
   }
 
-  // ✅ 새로운 리포트 버튼 빌드 함수
+  // 새로운 리포트 버튼 빌드 함수
   Widget _buildReportButton(ThemeData theme) {
     if (_isCreatingReport) {
       // 로딩 중일 때 표시할 위젯
@@ -168,36 +188,34 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
       );
     }
 
-    // 버튼 모양 구현 (ElevatedButton.icon 사용)
     return OutlinedButton.icon(
       onPressed: _createMonthlyReport,
       style: OutlinedButton.styleFrom(
-        side: const BorderSide(color: Colors.green, width: 2), // 테두리 초록색
-        foregroundColor: Colors.black87, // 기본 글자/아이콘 색
-        backgroundColor: Colors.white, // 기본 배경 흰색
+        side: const BorderSide(color: Colors.green, width: 2),
+        foregroundColor: Colors.black87,
+        backgroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
         minimumSize: const Size(double.infinity, 0),
       ).copyWith(
-        // Hover 또는 클릭 시 배경색 + 글자색 변경
         backgroundColor: WidgetStateProperty.resolveWith<Color?>(
               (states) {
             if (states.contains(WidgetState.hovered) ||
                 states.contains(WidgetState.pressed)) {
-              return Colors.green; // hover/press 시 배경색
+              return Colors.green;
             }
-            return Colors.white; // 기본 배경색
+            return Colors.white;
           },
         ),
         foregroundColor: WidgetStateProperty.resolveWith<Color?>(
               (states) {
             if (states.contains(WidgetState.hovered) ||
                 states.contains(WidgetState.pressed)) {
-              return Colors.white; // hover/press 시 글자색
+              return Colors.white;
             }
-            return Colors.black87; // 기본 글자색
+            return Colors.black87;
           },
         ),
       ),
@@ -235,22 +253,27 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
     final others = _family.where((m) => m.userId != me.userId).toList();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('프로필'),
-        centerTitle: false,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-      ),
       body: RefreshIndicator(
         onRefresh: _loadFamily,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // ✅ [여기!] 새로운 리포트 버튼 추가
-            _buildReportButton(theme),
-            const SizedBox(height: 24), // 버튼과 아래 내용 사이 간격
-
+            if (_family.isNotEmpty)
+              buildFamilyProfileCard(
+                familyName: _familyInfo?['familyName'] ?? "",
+                familyComment: _familyInfo?['familyComment'],
+                familyImageUrl: _familyInfo?['familyImageUrl'] != null
+                    ? '$assetBaseUrl${_familyInfo!['familyImageUrl']}'
+                    : null,
+                onEdit: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const FamilyEditScreen()),
+                  );
+                },
+                onGenerateReport: _createMonthlyReport,
+              ),
+            const SizedBox(height: 24),
             Text(
               '우리 가족 (${_family.length}명)',
               style: theme.textTheme.titleMedium
@@ -336,6 +359,128 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                 member: m,
                 roleText: roleLabel(m.role),
                 colorFor: _colorFor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildFamilyProfileCard({
+    required String familyName,
+    required String? familyComment,
+    required String? familyImageUrl,
+    required VoidCallback onEdit,
+    required VoidCallback onGenerateReport,
+  }) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+
+                // 가족 이미지
+                CircleAvatar(
+                  radius: 40,
+                  backgroundColor: Colors.white,
+                  child: Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.grey.shade300,
+                        width: 1,
+                      ),
+                    ),
+                    clipBehavior: Clip.hardEdge,
+                    child: (familyImageUrl != null && familyImageUrl!.isNotEmpty)
+                        ? Image.network(
+                      familyImageUrl!,
+                      fit: BoxFit.cover,
+                    )
+                        : const Icon(
+                      Icons.person,
+                      color: Colors.green,
+                      size: 40,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              familyName,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.settings, color: Colors.black45),
+                            onPressed: onEdit,
+                          )
+                        ],
+                      ),
+
+                      if (familyComment != null && familyComment!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 1),
+                          child: Text(
+                            familyComment!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: onGenerateReport,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: const BorderSide(color: Colors.green, width: 2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  foregroundColor: Colors.green,
+                  backgroundColor: Colors.white,
+                ),
+                child: const Text(
+                  "월간 리포트 PDF 생성하기",
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.green,
+                  ),
+                ),
               ),
             ),
           ],

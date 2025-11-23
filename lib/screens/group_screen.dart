@@ -1,12 +1,15 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart'; // 공유 기능 패키지
 
 import 'package:fithouse/api/http_client.dart';
 import 'package:fithouse/screens/record/record_screen.dart';
+import '../constants/colors.dart';
 
 class GroupScreen extends StatefulWidget {
   const GroupScreen({super.key});
@@ -19,8 +22,11 @@ class _GroupScreenState extends State<GroupScreen> {
   final _familyNameCtrl = TextEditingController();
   final _familyCommentCtrl = TextEditingController();
   final _inviteCodeCtrl = TextEditingController();
+  XFile? _pickedImage;
+  String? _uploadedImageUrl;
+  final ImagePicker _picker = ImagePicker();
 
-  // [수정 1] 처음부터 로딩 중인 상태로 시작하여 깜빡임 방지
+  // 처음부터 로딩 중인 상태로 시작하여 깜빡임 방지
   bool _loading = true;
 
   Map<String, dynamic>? _mine;
@@ -50,8 +56,42 @@ class _GroupScreenState extends State<GroupScreen> {
     final idToken = await user.getIdToken(true);
     return {
       'Authorization': 'Bearer $idToken',
-      'Content-Type': 'application/json',
     };
+  }
+
+  // 이미지 선택 함수
+  Future<void> _pickImage() async {
+    final picked = await _picker.pickImage(source: ImageSource.gallery);
+
+    if (picked != null) {
+      setState(() => _pickedImage = picked);
+      await _uploadFamilyImage(picked);
+    }
+  }
+
+  // 이미지 서버 업로드 함수
+  Future<void> _uploadFamilyImage(XFile file) async {
+    try {
+      final uri = Uri.parse('$baseUrl/family/image');
+      final headers = await authHeaders();
+
+      final req = http.MultipartRequest('POST', uri)
+        ..headers.addAll({'Authorization': headers['Authorization']!})
+        ..files.add(await http.MultipartFile.fromPath('file', file.path));
+
+      final streamed = await req.send();
+      final res = await http.Response.fromStream(streamed);
+
+      if (res.statusCode == 200) {
+        final url = res.body.replaceAll('"', '');
+        setState(() => _uploadedImageUrl = url);
+        _showSnack("이미지가 업로드되었습니다.");
+      } else {
+        _showSnack("이미지 업로드 실패");
+      }
+    } catch (e) {
+      _showSnack("이미지 업로드 오류 발생");
+    }
   }
 
   // 초대코드 공유 함수
@@ -98,6 +138,7 @@ class _GroupScreenState extends State<GroupScreen> {
     setState(() => _loading = true);
     try {
       final headers = await _authHeader();
+      headers['Content-Type'] = 'application/json';
       final url = Uri.parse('$baseUrl/family');
       final body = jsonEncode({
         'familyName': name,
@@ -141,6 +182,7 @@ class _GroupScreenState extends State<GroupScreen> {
     setState(() => _loading = true);
     try {
       final headers = await _authHeader();
+      headers['Content-Type'] = 'application/json';
       final url = Uri.parse('$baseUrl/family/join');
       final body = jsonEncode({'code': code});
       final res = await http.post(url, headers: headers, body: body);
@@ -168,7 +210,7 @@ class _GroupScreenState extends State<GroupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // [수정 1 관련] 로딩 중이면 화면 전체에 로딩 인디케이터 표시 (엉뚱한 화면 노출 방지)
+    // 로딩 중이면 화면 전체에 로딩 인디케이터 표시 (엉뚱한 화면 노출 방지)
     if (_loading && _mine == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator(color: Colors.green)),
@@ -192,8 +234,6 @@ class _GroupScreenState extends State<GroupScreen> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-
-                // [수정 2] 여기에 있던 _SectionHeader(줄+새로고침버튼) 삭제함
 
                 Card(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -221,21 +261,77 @@ class _GroupScreenState extends State<GroupScreen> {
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         children: [
+                          GestureDetector(
+                            onTap: _pickImage,
+                            child: CircleAvatar(
+                              radius: 40,
+                              backgroundColor: Colors.grey[200],
+                              backgroundImage: _pickedImage != null
+                                  ? FileImage(File(_pickedImage!.path))
+                                  : (_uploadedImageUrl != null
+                                  ? NetworkImage('$assetBaseUrl$_uploadedImageUrl')
+                                  : null) as ImageProvider?,
+                              child: (_pickedImage == null && _uploadedImageUrl == null)
+                                  ? const Icon(Icons.camera_alt, color: Colors.grey, size: 32)
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
                           TextField(
                             controller: _familyNameCtrl,
+                            maxLength: 30,
+                            buildCounter: (
+                                BuildContext context, {
+                                  required int currentLength,
+                                  required int? maxLength,
+                                  required bool isFocused,
+                                }) {
+                              return Text(
+                                "$currentLength/$maxLength",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isFocused ? Colors.green : Colors.grey,
+                                ),
+                              );
+                            },
                             decoration: const InputDecoration(
                               labelText: '가족 이름',
                               border: OutlineInputBorder(),
+                              focusedBorder: OutlineInputBorder(
+                                borderSide: BorderSide(color: Colors.green, width: 2),
+                              ),
+                              labelStyle: TextStyle(color: Colors.black54),
+                              floatingLabelStyle: TextStyle(color: Colors.green),
                             ),
                           ),
                           const SizedBox(height: 12),
                           TextField(
                             controller: _familyCommentCtrl,
+                            maxLines: 2,
+                            maxLength: 50,
+                            buildCounter: (
+                                BuildContext context, {
+                                  required int currentLength,
+                                  required int? maxLength,
+                                  required bool isFocused,
+                                }) {
+                              return Text(
+                                "$currentLength/$maxLength",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isFocused ? Colors.green : Colors.grey,
+                                ),
+                              );
+                            },
                             decoration: const InputDecoration(
                               labelText: '가족 메모(선택)',
                               border: OutlineInputBorder(),
+                              focusedBorder: OutlineInputBorder(
+                                borderSide: BorderSide(color: Colors.green, width: 2),
+                              ),
+                              labelStyle: TextStyle(color: Colors.black54),
+                              floatingLabelStyle: TextStyle(color: Colors.green),
                             ),
-                            maxLines: 2,
                           ),
                           const SizedBox(height: 16),
                           SizedBox(
@@ -334,6 +430,11 @@ class _GroupScreenState extends State<GroupScreen> {
                               labelText: '초대코드',
                               hintText: '예: ABCD12',
                               border: OutlineInputBorder(),
+                              focusedBorder: OutlineInputBorder(
+                                borderSide: BorderSide(color: Colors.green, width: 2),
+                              ),
+                              labelStyle: TextStyle(color: Colors.black54),
+                              floatingLabelStyle: TextStyle(color: Colors.green),
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -373,7 +474,6 @@ class _GroupScreenState extends State<GroupScreen> {
   }
 }
 
-// 구분선 있는 헤더 (가족 생성/가입 섹션용)
 class _SectionHeader extends StatelessWidget {
   final String title;
   final Widget? trailing;
