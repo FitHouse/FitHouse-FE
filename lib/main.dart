@@ -131,7 +131,6 @@ class AuthGate extends StatelessWidget {
   }
 }
 
-
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
   @override
@@ -141,19 +140,20 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
+  // 순서 변경: 챗봇 -> 가족운동 -> 전체 -> 만보기 -> 커뮤니티
   final List<Widget> _pages = [
-    const ChatbotScreen(),
-    const ProfileScreen(),
-    const StepCounterScreen(),
-    const CommunityScreen(),
-    const AllMenuScreen(),
+    const ChatbotScreen(),      // 0
+    const ProfileScreen(),      // 1
+    const AllMenuScreen(),      // 2
+    const StepCounterScreen(),  // 3
+    const CommunityScreen(),    // 4
   ];
 
   void _onItemTapped(int index) {
     setState(() => _selectedIndex = index);
 
-    // 만보기 탭(2번)으로 이동할 때 → 항상 이번 주로 초기화
-    if (index == 2) {
+    // 만보기 탭(이제 index가 3번)으로 이동할 때 → 항상 이번 주로 초기화
+    if (index == 3) {
       StepCounterScreenState.instance?.onTabRevisited();
     }
   }
@@ -162,7 +162,6 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // [디자인 수정] 화이트 배경 + 로고 (알림 삭제됨)
         backgroundColor: const Color(0xFFA9C18D),
         elevation: 0,
         centerTitle: false, // 왼쪽 정렬
@@ -185,14 +184,13 @@ class _MainScreenState extends State<MainScreen> {
               'FitHouse',
               style: TextStyle(
                 color: Colors.white,
-                fontWeight: FontWeight.bold, // [수정됨] w900 -> bold (적당한 굵기)
+                fontWeight: FontWeight.bold,
                 fontSize: 22,
                 fontFamily: 'PyeojinGothic',
               ),
             ),
           ],
         ),
-        // actions: [] 부분을 삭제하여 알림 아이콘을 없앴습니다.
       ),
 
       // 화면 상태 유지 (Dispose 방지)
@@ -207,10 +205,9 @@ class _MainScreenState extends State<MainScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.chat), label: '챗봇'),
           BottomNavigationBarItem(icon: Icon(Icons.diversity_1), label: '가족운동'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.directions_walk), label: '만보기'),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: '홈'),
+          BottomNavigationBarItem(icon: Icon(Icons.directions_walk), label: '만보기'),
           BottomNavigationBarItem(icon: Icon(Icons.cabin), label: '커뮤니티'),
-          BottomNavigationBarItem(icon: Icon(Icons.menu), label: '전체'),
         ],
       ),
     );
