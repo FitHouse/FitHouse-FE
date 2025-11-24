@@ -11,6 +11,12 @@ class FamilyProgressCard extends StatelessWidget {
   final int totalTodaySteps;
   final int todayGoalWithFamily;
 
+  final int selectedWeek;
+  final Function(int) onWeekChange;
+
+  final DateTime? from;
+  final DateTime? to;
+
   const FamilyProgressCard({
     super.key,
     required this.steppedWeeklyProgress,
@@ -19,10 +25,36 @@ class FamilyProgressCard extends StatelessWidget {
     required this.weeklyGoal,
     required this.totalTodaySteps,
     required this.todayGoalWithFamily,
+
+    required this.selectedWeek,
+    required this.onWeekChange,
+
+    this.from,
+    this.to,
   });
+
+  String weekLabel(int week) {
+    if (week == 0) return "이번 주";
+    if (week == 1) return "지난 주";
+    return "${week}주 전";
+  }
+
+  String formatDate(DateTime d) {
+    return "${d.year}.${d.month.toString().padLeft(2,'0')}.${d.day.toString().padLeft(2,'0')}";
+  }
+
 
   @override
   Widget build(BuildContext context) {
+
+    String range = "";
+    if (from != null && to != null) {
+      range = "(${formatDate(from!)} ~ ${formatDate(to!)})";
+    }
+
+    final bool isSuccess = weeklySteps >= weeklyGoal;
+    final bool showOverlay = selectedWeek != 0;
+
     return Card(
       elevation: 6,
       margin: const EdgeInsets.all(16),
@@ -42,18 +74,37 @@ class FamilyProgressCard extends StatelessWidget {
                   "주간 진행률",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.info_outline, size: 24),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => const LevelInfoPopup(),
-                    );
-                  },
-                ),
+
+                Row(
+                  children: [
+                    DropdownButton<int>(
+                      value: selectedWeek,
+                      underline: SizedBox(),
+                      items: const [
+                        DropdownMenuItem(value: 0, child: Text("이번 주")),
+                        DropdownMenuItem(value: 1, child: Text("지난 주")),
+                        DropdownMenuItem(value: 2, child: Text("2주 전")),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) onWeekChange(v);
+                      },
+                    ),
+
+                    IconButton(
+                      icon: const Icon(Icons.info_outline),
+                      onPressed: () => showDialog(
+                        context: context,
+                        builder: (_) => const LevelInfoPopup(),
+                      ),
+                    ),
+                  ],
+                )
               ],
             ),
+
             const SizedBox(height: 12),
+
+
 
             // 원형 프로그레스 + 레벨 이미지
             SizedBox(
@@ -62,6 +113,7 @@ class FamilyProgressCard extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
+                  // 1) PROGRESS PAINTER (맨 뒤)
                   SizedBox(
                     height: 180,
                     width: 180,
@@ -72,20 +124,12 @@ class FamilyProgressCard extends StatelessWidget {
                       builder: (context, value, child) {
                         return CustomPaint(
                           painter: GradientCirclePainter(progress: value),
-                          child: Center(
-                            child: SizedBox(
-                              height: 140,
-                              width: 140,
-                              child: Image.asset(
-                                levelImage,
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                          ),
                         );
                       },
                     ),
                   ),
+
+                  // 2) LEVEL IMAGE (중간 레이어)
                   SizedBox(
                     height: 140,
                     width: 140,
@@ -94,38 +138,92 @@ class FamilyProgressCard extends StatelessWidget {
                       fit: BoxFit.contain,
                     ),
                   ),
+
+                  // 3) TEXT (맨 위 → 이미지 위를 덮어버림)
+                  if (selectedWeek != 0)
+                    Positioned.fill(
+                      child: Center(
+                        child: Text(
+                          isSuccess
+                              ? "🎉 목표 달성!\n너무 잘했어요!"
+                              : "🌧️ 목표 달성 실패..\n우리 가족 더 힘내볼까요?",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            height: 1.3,
+                            shadows: [
+                              Shadow(
+                                blurRadius: 8,
+                                color: Colors.black.withOpacity(0.6),
+                                offset: Offset(1, 1),
+                              )
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
+
+
             const SizedBox(height: 8),
 
+
             // 주간 합계 텍스트
-            Text(
-              "이번 주 $weeklySteps / $weeklyGoal 걸음",
+            selectedWeek == 0
+                ? Text(
+              "${weekLabel(selectedWeek)} $weeklySteps / $weeklyGoal 걸음",
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
+            )
+                : Column(
+              children: [
+                Text(
+                  "${weekLabel(selectedWeek)} $range",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                SizedBox(height: 6), // 여기 간격!
+
+                Text(
+                  "$weeklySteps / $weeklyGoal 걸음",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
 
             const SizedBox(height: 12),
 
-            // 물결 프로그레스 바
-            WaveProgressBar(
-              progress: (totalTodaySteps / todayGoalWithFamily).clamp(0.0, 1.0),
-              color: Colors.green,
-              height: 20,
-            ),
-            const SizedBox(height: 4),
-
-            // 오늘 합계 텍스트
-            Text(
-              "오늘 $totalTodaySteps / $todayGoalWithFamily 걸음",
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+            if (selectedWeek == 0) ...[
+              WaveProgressBar(
+                progress: (totalTodaySteps / todayGoalWithFamily).clamp(0.0, 1.0),
+                color: Colors.green,
+                height: 20,
               ),
-            ),
+              const SizedBox(height: 4),
+
+              Text(
+                "오늘 $totalTodaySteps / $todayGoalWithFamily 걸음",
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ],
         ),
       ),

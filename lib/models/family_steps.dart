@@ -110,13 +110,15 @@ class FamilyWeeklySummary {
 class FamilyStepsSummary {
   final DateTime from;
   final DateTime to;
-  final FamilyWeeklySummary? family;
+  final FamilyDailySummary? today;
+  final FamilyWeeklySummary? week;
   final List<FamilySteps> members;
 
   const FamilyStepsSummary({
     required this.from,
     required this.to,
-    required this.family,
+    required this.today,
+    required this.week,
     required this.members,
   });
 
@@ -124,11 +126,42 @@ class FamilyStepsSummary {
       FamilyStepsSummary(
         from: DateTime.parse(j['from']),
         to: DateTime.parse(j['to']),
-        family: j['family'] != null
-            ? FamilyWeeklySummary.fromJson(j['family'])
+        today: j['today'] != null
+            ? FamilyDailySummary.fromJson(j['today'])
+            : null,
+        week: j['week'] != null
+            ? FamilyWeeklySummary.fromJson(j['week'])
             : null,
         members: (j['members'] as List<dynamic>)
             .map((m) => FamilySteps.fromJson(m))
             .toList(),
       );
 }
+
+
+/// 오늘 요약 (백엔드 DTO: FamilyDailySummary)
+class FamilyDailySummary {
+  final int familyId;
+  final int todayGoal;
+  final int totalSteps;
+
+  const FamilyDailySummary({
+    required this.familyId,
+    required this.todayGoal,
+    required this.totalSteps,
+  });
+
+  factory FamilyDailySummary.fromJson(Map<String, dynamic> j) =>
+      FamilyDailySummary(
+        familyId: j['familyId'] ?? 0,
+        todayGoal: j['todayGoal'] ?? 0,
+        totalSteps: j['totalSteps'] ?? 0,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'familyId': familyId,
+    'todayGoal': todayGoal,
+    'totalSteps': totalSteps,
+  };
+}
+
