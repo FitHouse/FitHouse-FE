@@ -247,8 +247,8 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
       child: Scaffold(
         backgroundColor: const Color(0xFFF8F9FA),
 
-        // 앱바 스타일: 테마를 따릅니다.
         appBar: AppBar(
+          backgroundColor: const Color(0xFFA9C18D),
           title: const Text('개인운동 기록', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
           elevation: 0,
           centerTitle: true,
@@ -312,7 +312,7 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
                     ),
                   ),
 
-                  // 🎯 [잔디심기 2] calendarBuilders를 사용하여 잔디(배경색) 효과 구현
+                  //  [잔디심기 2] calendarBuilders를 사용하여 잔디(배경색) 효과 구현
                   calendarBuilders: CalendarBuilders(
 
                     // 1. 일반 날짜 + 운동 기록 있음 (잔디 심기)
