@@ -89,6 +89,8 @@ class StepCounterScreen extends StatefulWidget {
 class StepCounterScreenState extends State<StepCounterScreen>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
 
+  Timer? midnightTimer;
+
   static StepCounterScreenState? instance;
 
   static const platform = MethodChannel("steps_channel");
@@ -137,6 +139,8 @@ class StepCounterScreenState extends State<StepCounterScreen>
     WidgetsBinding.instance.addObserver(this);
     instance = this;
 
+    _scheduleMidnightRefresh();   // <-- 자정 감지 기능 추가
+
     _loadAll().then((_) {
       _lastFetchedDate = DateTime.now();
       _startReadingPrefs();
@@ -149,6 +153,9 @@ class StepCounterScreenState extends State<StepCounterScreen>
     _disposed = true;
     _prefsTick?.cancel();
     _sendTick?.cancel();
+
+    midnightTimer?.cancel();   // <-- 추가
+
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -264,6 +271,24 @@ class StepCounterScreenState extends State<StepCounterScreen>
       }
     });
   }
+
+  void _scheduleMidnightRefresh() {
+    final now = DateTime.now();
+    final nextMidnight = DateTime(now.year, now.month, now.day + 1);
+
+    final duration = nextMidnight.difference(now);
+
+    midnightTimer?.cancel();
+    midnightTimer = Timer(duration, () async {
+      print("자정 감지됨! summary 자동 새로고침 실행");
+
+      await _fetchStepsFromServer(); // 서버에서 최신 주간/오늘 걸음수 받아오기
+
+      // 다음 자정도 다시 예약
+      _scheduleMidnightRefresh();
+    });
+  }
+
 
   /// 주기적으로 서버 전송
   void _startSendTick() {
