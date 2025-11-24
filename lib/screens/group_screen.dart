@@ -223,7 +223,8 @@ class _GroupScreenState extends State<GroupScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('가족'),
+        backgroundColor: const Color(0xFFA9C18D),
+        title: const Text('가족코드'),
         centerTitle: true,
       ),
       body: Stack(

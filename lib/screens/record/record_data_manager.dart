@@ -10,10 +10,10 @@ import 'package:fithouse/api/personal_workout_api.dart';
 import 'package:fithouse/models/paged.dart';
 import 'package:fithouse/models/personal_workout.dart';
 
-// ⭐️ 메인 테마 색상: 새로운 파스텔 톤 (#8FC7A7)
+// 메인 테마 색상: 새로운 파스텔 톤 (#8FC7A7)
 const Color mainGreen = Color(0xFF8FC7A7);
 
-// 🎯 이벤트 마커에 사용할 파스텔 색상 리스트
+// 이벤트 마커에 사용할 파스텔 색상 리스트
 final pastelColors = const [
   Color(0xFFB3E5FC), // 연한 하늘색
   Color(0xFFFFCDD2), // 연한 빨간색

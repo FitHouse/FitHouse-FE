@@ -36,6 +36,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: const Color(0xFFA9C18D),
         title: const Text("운동 영상 모음"),
         centerTitle: true,
       ),
