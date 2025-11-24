@@ -109,6 +109,7 @@ class StepCounterScreenState extends State<StepCounterScreen>
   int _lastSent = -1;
 
   List<FamilySteps> _family = [];
+  List<FamilySteps> pastMembers = [];
   FamilyStepsSummary? _familySummary;
 
   Timer? _prefsTick;
@@ -116,8 +117,22 @@ class StepCounterScreenState extends State<StepCounterScreen>
   bool _loading = true;
 
   DateTime? _lastFetchedDate;
+  DateTime? pastFrom;
+  DateTime? pastTo;
+
   static const Duration _minSendInterval = Duration(minutes: 1);
   DateTime _lastSendTime = DateTime.fromMillisecondsSinceEpoch(0);
+
+  // 주차 선택 상태
+  int selectedWeek = 0;           // 0 = 이번주, 1 = 지난주
+  bool showingPast = false;
+
+  // 과거 주차 표시용 데이터
+  int pastWeeklySteps = 0;
+  int pastWeeklyGoal = 0;
+  int pastTodaySteps = 0;   // 과거 주는 0으로 표시
+  int pastTodayGoal = 0;
+  double pastProgress = 0.0;
 
 
   Future<int> _getTodayStepsFromNative() async {
@@ -132,6 +147,13 @@ class StepCounterScreenState extends State<StepCounterScreen>
 
   @override
   bool get wantKeepAlive => true;
+
+  void onTabRevisited() {
+    setState(() {
+      selectedWeek = 0;
+      showingPast = false;
+    });
+  }
 
   @override
   void initState() {
@@ -247,6 +269,59 @@ class StepCounterScreenState extends State<StepCounterScreen>
       setState(() => _family = []);
     }
   }
+
+  Future<FamilyStepsSummary> _fetchPastWeeklySummary(int weeksAgo) async {
+    final uri = Uri.parse(
+        '$baseUrl/api/families/$_myFamilyId/steps/summary/week'
+    ).replace(queryParameters: {'weeksAgo': '$weeksAgo'});
+
+    final res = await httpClient.get(uri, headers: await authHeaders());
+
+    if (res.statusCode != 200) {
+      throw Exception("failed: ${res.body}");
+    }
+
+    return FamilyStepsSummary.fromJson(jsonDecode(res.body));
+  }
+
+  Future<void> _changeWeek(int weeksAgo) async {
+    setState(() {
+      selectedWeek = weeksAgo;
+      _loading = true;
+      showingPast = (weeksAgo != 0);
+    });
+
+    if (weeksAgo == 0) {
+      await _fetchStepsFromServer();
+      setState(() => _loading = false);
+      return;
+    }
+
+    final summary = await _fetchPastWeeklySummary(weeksAgo);
+
+    if (!mounted) return;
+
+    setState(() {
+      pastWeeklySteps = summary.week?.totalSteps ?? 0;
+      pastWeeklyGoal = summary.week?.weeklyGoal ?? 0;
+
+      pastFrom = summary.from;
+      pastTo = summary.to;
+
+      pastProgress = (pastWeeklyGoal > 0
+          ? pastWeeklySteps / pastWeeklyGoal
+          : 0.0).clamp(0.0, 1.0);
+
+      pastTodaySteps = 0;
+      pastTodayGoal = (_family.length) * 10000;
+
+      pastMembers = summary.members;
+
+      _loading = false;
+    });
+  }
+
+
 
 
   /// SharedPreferences("steps") → todaySteps 읽기
@@ -381,7 +456,7 @@ class StepCounterScreenState extends State<StepCounterScreen>
     final familyCount = _family.isNotEmpty ? _family.length : 1;
     final weeklyGoal = _myGoal * familyCount * 7;
 
-    final weeklySteps = _familySummary?.family?.totalSteps ?? 0;
+    final weeklySteps = _familySummary?.week?.totalSteps ?? 0;
 
     final totalTodaySteps = _family.isNotEmpty
         ? _family.map((f) => f.today).reduce((a, b) => a + b)
@@ -394,6 +469,7 @@ class StepCounterScreenState extends State<StepCounterScreen>
         .clamp(0.0, 1.0);
 
     final levelImage = _getLevelImagePath(steppedWeeklyProgress);
+    final membersToShow = showingPast ? pastMembers : _family;
     final todayGoalWithFamily = _myGoal * familyCount;
 
     return Scaffold(
@@ -401,17 +477,23 @@ class StepCounterScreenState extends State<StepCounterScreen>
       body: Column(
         children: [
           FamilyProgressCard(
-            steppedWeeklyProgress: steppedWeeklyProgress,
+            selectedWeek: selectedWeek,
+            onWeekChange: (v) => _changeWeek(v),
+            steppedWeeklyProgress: showingPast ? pastProgress : steppedWeeklyProgress,
             levelImage: levelImage,
-            weeklySteps: weeklySteps,
-            weeklyGoal: weeklyGoal,
-            totalTodaySteps: totalTodaySteps,
-            todayGoalWithFamily: todayGoalWithFamily,
+            weeklySteps: showingPast ? pastWeeklySteps : weeklySteps,
+            weeklyGoal: showingPast ? pastWeeklyGoal : weeklyGoal,
+            totalTodaySteps: showingPast ? pastTodaySteps : totalTodaySteps,
+            todayGoalWithFamily: showingPast ? pastTodayGoal : todayGoalWithFamily,
+
+            from: showingPast ? pastFrom : _familySummary?.from,
+            to: showingPast ? pastTo : _familySummary?.to,
           ),
+
           Expanded(
             child: FamilyStepsWidget(
-              members: _family,
-              range: 'today',
+              members: membersToShow,
+              range: showingPast ? 'week' : 'today',
               goal: _myGoal,
               myUserId: _myUserId,
             ),

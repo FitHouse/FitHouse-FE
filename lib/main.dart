@@ -151,6 +151,11 @@ class _MainScreenState extends State<MainScreen> {
 
   void _onItemTapped(int index) {
     setState(() => _selectedIndex = index);
+
+    // 만보기 탭(2번)으로 이동할 때 → 항상 이번 주로 초기화
+    if (index == 2) {
+      StepCounterScreenState.instance?.onTabRevisited();
+    }
   }
 
   @override
