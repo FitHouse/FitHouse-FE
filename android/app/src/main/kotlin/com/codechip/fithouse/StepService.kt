@@ -119,7 +119,7 @@ class StepService : Service(), SensorEventListener {
             .apply()
 
         updateNotification(todaySteps)
-        println("cumulative=$cumulative | baseline=$baseline | serverToday=$serverToday | todaySteps=$todaySteps")
+        //println("cumulative=$cumulative | baseline=$baseline | serverToday=$serverToday | todaySteps=$todaySteps")
 
     }
 
