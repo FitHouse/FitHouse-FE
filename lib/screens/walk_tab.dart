@@ -39,6 +39,9 @@ class _WalkTabState extends State<WalkTab> {
   bool _isLoading = true;
   String _message = '공원 데이터를 불러오는 중입니다...';
 
+  // ✅ [추가] 검색창 열림/닫힘 상태 변수
+  bool _isSearchExpanded = true;
+
   @override
   void initState() {
     super.initState();
@@ -80,7 +83,6 @@ class _WalkTabState extends State<WalkTab> {
     if (_selectedSido == null || _selectedSigungu == null) {
       setState(() {
         _message = '시/도와 시/군/구를 모두 선택해주세요.';
-        // 로딩 상태 해제 (중요)
         _isLoading = false;
       });
       return;
@@ -93,10 +95,18 @@ class _WalkTabState extends State<WalkTab> {
         ? '$_selectedSido $_selectedSigungu $_selectedDong'
         : '$_selectedSido $_selectedSigungu';
 
-    final regionGrid = _gridData.firstWhere(
+    var regionGrid = _gridData.firstWhere(
           (item) => item['bjd_nm'] == selectedRegionName,
       orElse: () => null,
     );
+
+    // 동으로 못 찾으면 구 단위로 찾기
+    if (regionGrid == null) {
+      regionGrid = _gridData.firstWhere(
+            (item) => item['bjd_nm'] == '$_selectedSido $_selectedSigungu',
+        orElse: () => null,
+      );
+    }
 
     int? nx, ny;
     if (regionGrid != null) {
@@ -137,21 +147,27 @@ class _WalkTabState extends State<WalkTab> {
         _weatherData = fetchedWeatherList?.isNotEmpty == true ? fetchedWeatherList!.first : null;
 
         if (_filteredParks.isEmpty) {
-          _message = '해당 지역에 공원 정보가 없습니다.';
+          if (_selectedDong != null) {
+            _message = '$_selectedSido $_selectedSigungu $_selectedDong 지역에 공원 정보가 없습니다.';
+          } else {
+            _message = '$_selectedSido $_selectedSigungu 지역에 공원 정보가 없습니다.';
+          }
+        } else {
+          // ✅ [추가] 검색 결과가 있으면 검색창을 자동으로 접습니다.
+          _isSearchExpanded = false;
         }
         _isLoading = false;
       });
     });
   }
 
-// 📍 [최종 수정] 내 위치(GPS)를 받아서 드롭다운을 자동 설정하는 함수
+  // 📍 내 위치(GPS)를 받아서 드롭다운을 자동 설정하는 함수
   Future<void> _searchByCurrentLocation() async {
     setState(() {
       _isLoading = true;
       _message = 'GPS 정보를 확인 중입니다...';
     });
 
-    // 1. 권한 및 서비스 확인
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       setState(() {
@@ -174,14 +190,9 @@ class _WalkTabState extends State<WalkTab> {
     }
 
     try {
-      // 2. 현재 좌표 가져오기
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
       setState(() => _message = '주소를 변환 중입니다...');
 
-      // 3. 좌표 -> 주소 변환
       List<Placemark> placemarks = await placemarkFromCoordinates(
         position.latitude,
         position.longitude,
@@ -189,104 +200,96 @@ class _WalkTabState extends State<WalkTab> {
 
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks.first;
+        print("📦 GPS 원본 데이터: $place");
 
-        // 🔥 [디버깅] GPS가 주는 모든 정보를 다 찍어봅니다.
-        print("📦 GPS 원본 데이터(Placemark): $place");
+        String fullAddress = place.toString();
+        String gpsSidoRaw = place.administrativeArea ?? '';
 
-        // 1. 시/도 찾기
-        // administrativeArea가 비어있으면 전체 주소에서 시도 이름을 찾습니다.
-        String fullAddress = place.toString(); // 전체 주소 텍스트
+        List<String> gpsSigunguCandidates = [
+          place.locality ?? '',
+          place.subLocality ?? '',
+          place.subAdministrativeArea ?? ''
+        ];
+        List<String> gpsDongCandidates = [
+          place.thoroughfare ?? '',
+          place.subLocality ?? ''
+        ];
+
+        // 1. 시/도 매칭
         String? matchedSido;
-
         try {
           matchedSido = _sidoList.firstWhere(
-                (sido) =>
-            (place.administrativeArea ?? '').contains(sido) ||
-                sido.contains(place.administrativeArea ?? '') ||
-                fullAddress.contains(sido), // 전체 텍스트에서도 검색
+                (sido) => gpsSidoRaw.contains(sido) || sido.contains(gpsSidoRaw) || fullAddress.contains(sido),
           );
         } catch (e) { /* 매칭 실패 */ }
 
         if (matchedSido != null) {
-          // 2. 시/군/구 찾기 (강력한 탐색!)
-          // GPS 변수(locality 등)를 믿지 않고, 우리 리스트에 있는 '구' 이름이 GPS 정보 어디라도 포함되어 있는지 확인합니다.
           List<String> validSigunguList = _regionHierarchy[matchedSido]?.keys.toList() ?? [];
           String? matchedSigungu;
 
-          try {
-            matchedSigungu = validSigunguList.firstWhere((validSigungu) {
-              // GPS 정보의 구석구석을 다 뒤져서 '강서구' 같은 단어가 있는지 확인
-              return (place.locality ?? '').contains(validSigungu) ||
-                  (place.subLocality ?? '').contains(validSigungu) ||
-                  (place.subAdministrativeArea ?? '').contains(validSigungu) ||
-                  fullAddress.contains(validSigungu);
-            });
-          } catch (e) {}
-
-          // 3. 읍/면/동 찾기 (강력한 탐색!)
-          List<String> newDongList = [];
-          String? matchedDong;
-
-          if (matchedSigungu != null) {
-            newDongList = _regionHierarchy[matchedSido]?[matchedSigungu] ?? [];
+          // 2. 시/군/구 매칭
+          for (String candidate in gpsSigunguCandidates) {
+            if (candidate.isEmpty) continue;
             try {
-              matchedDong = newDongList.firstWhere((validDong) {
-                return (place.thoroughfare ?? '').contains(validDong) ||
-                    (place.subLocality ?? '').contains(validDong) ||
-                    fullAddress.contains(validDong);
-              });
+              matchedSigungu = validSigunguList.firstWhere(
+                    (validName) => candidate.contains(validName) || validName.contains(candidate),
+              );
+              if (matchedSigungu != null) break;
             } catch (e) {}
-          } else {
-            // 구를 못 찾았는데 동 정보는 있는 경우 역추적 (마지막 보루)
-            String gpsDong = place.thoroughfare ?? place.subLocality ?? '';
-            if (gpsDong.isNotEmpty) {
+          }
+
+          // 구를 못 찾았으면 동 정보로 역추적
+          if (matchedSigungu == null) {
+            for (String dongCandidate in gpsDongCandidates) {
+              if (dongCandidate.isEmpty) continue;
               try {
                 matchedSigungu = validSigunguList.firstWhere((sigunguKey) {
                   List<String> dongsInGu = _regionHierarchy[matchedSido]?[sigunguKey] ?? [];
-                  return dongsInGu.any((validDong) => gpsDong.contains(validDong));
+                  return dongsInGu.any((validDong) => dongCandidate.contains(validDong));
                 });
-                if (matchedSigungu != null) {
-                  newDongList = _regionHierarchy[matchedSido]?[matchedSigungu] ?? [];
-                  // 구를 찾았으니 동도 다시 매칭 시도
-                  try {
-                    matchedDong = newDongList.firstWhere((d) => gpsDong.contains(d));
-                  } catch (e) {}
-                }
+                if (matchedSigungu != null) break;
               } catch (e) {}
             }
           }
 
-          // 4. 상태 업데이트 및 검색
-          setState(() {
-            _selectedSido = matchedSido;
-            _sigunguList = validSigunguList;
-
-            _selectedSigungu = matchedSigungu;
-            _dongList = newDongList;
-
-            _selectedDong = matchedDong;
-
-            if (matchedSigungu == null) {
-              _message = '상세 지역(구/군)을 자동으로 찾지 못했습니다. 직접 선택해주세요.';
-            } else {
-              _message = '위치 설정 완료! 검색을 시작합니다.';
-            }
-          });
-
-          // 구 정보가 있으면 검색 실행, 없으면 사용자 선택 유도
           if (matchedSigungu != null) {
-            _filterParks();
-          } else {
-            // 구를 못 찾았으면 로딩 끄기
-            setState(() => _isLoading = false);
-          }
+            List<String> newDongList = _regionHierarchy[matchedSido]?[matchedSigungu] ?? [];
+            String? matchedDong;
 
-        } else {
-          setState(() {
-            _isLoading = false;
-            _message = '현재 위치의 시/도 정보를 찾을 수 없습니다.';
-          });
+            for (String candidate in gpsDongCandidates) {
+              if (candidate.isEmpty) continue;
+              try {
+                matchedDong = newDongList.firstWhere(
+                      (validDong) => candidate.contains(validDong) || validDong.contains(candidate),
+                );
+                if (matchedDong != null) break;
+              } catch (e) {}
+            }
+
+            setState(() {
+              _selectedSido = matchedSido;
+              _sigunguList = validSigunguList;
+              _selectedSigungu = matchedSigungu;
+              _dongList = newDongList;
+              _selectedDong = matchedDong;
+
+              if (matchedDong == null) {
+                _message = '상세 동 정보를 찾지 못해 $matchedSigungu 전체를 검색합니다.';
+              } else {
+                _message = '위치 설정 완료! 검색을 시작합니다.';
+              }
+            });
+
+            _filterParks();
+            return;
+          }
         }
+
+        setState(() {
+          _isLoading = false;
+          _message = '현재 위치($gpsSidoRaw)의 상세 지역 정보를 찾을 수 없습니다.';
+        });
+
       } else {
         setState(() {
           _isLoading = false;
@@ -310,13 +313,80 @@ class _WalkTabState extends State<WalkTab> {
         children: [
           if (_weatherData != null) _buildWeatherCard(),
           if (_weatherData != null) const SizedBox(height: 16),
-          _buildRegionSelectors(),
+
+          // ✅ [수정됨] 검색 옵션 패널 (접기/펼치기 가능)
+          _buildSearchPanel(),
+
           const SizedBox(height: 16),
-          _buildSearchButton(),
-          const SizedBox(height: 12),
-          _buildGpsButton(), // 내 위치 검색 버튼
-          const SizedBox(height: 24),
+
           Expanded(child: _buildResultsView()),
+        ],
+      ),
+    );
+  }
+
+  // ✅ [추가됨] 검색 패널 위젯 (토글 기능 포함)
+  Widget _buildSearchPanel() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[50], // 연한 배경색
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Column(
+        children: [
+          // 1. 헤더 (클릭하면 접기/펼치기)
+          InkWell(
+            onTap: () {
+              setState(() {
+                _isSearchExpanded = !_isSearchExpanded;
+              });
+            },
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16), bottom: Radius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.manage_search, color: Colors.green[700]),
+                      const SizedBox(width: 8),
+                      Text(
+                        _isSearchExpanded ? '검색 옵션 닫기' : '검색 옵션 열기',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[800],
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Icon(
+                    _isSearchExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: Colors.grey[600],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 2. 내용물 (펼쳐졌을 때만 보임)
+          if (_isSearchExpanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                children: [
+                  const Divider(height: 1), // 헤더와 내용 사이 구분선
+                  const SizedBox(height: 16),
+                  _buildRegionSelectors(),
+                  const SizedBox(height: 12),
+                  _buildSearchButton(),
+                  const SizedBox(height: 8),
+                  _buildGpsButton(),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -385,7 +455,7 @@ class _WalkTabState extends State<WalkTab> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: Colors.white, // 패널 배경이 회색이라 드롭다운은 흰색으로
         borderRadius: BorderRadius.circular(30),
         border: Border.all(color: Colors.grey[300]!, width: 1.5),
       ),
@@ -528,9 +598,8 @@ class _WalkTabState extends State<WalkTab> {
         _addFacilityInfo(facilityWidgets, '교양시설', park.cltrFclty);
         _addFacilityInfo(facilityWidgets, '기타시설', park.etcFclty);
 
-        // 근접 시설 정보 표시
         if (park.nearestFacilityNm != null && park.nearestFacilityNm!.isNotEmpty) {
-          facilityWidgets.add(const SizedBox(height: 8));
+          facilityWidgets.add(const SizedBox(height: 4));
           facilityWidgets.add(Text('🎯 근접 시설 정보', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blueGrey[700])));
           facilityWidgets.add(const SizedBox(height: 8));
 
