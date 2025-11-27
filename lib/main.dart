@@ -1,3 +1,5 @@
+import 'package:fithouse/providers/ranking_provider.dart';
+import 'package:fithouse/services/ranking_service.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -14,6 +16,7 @@ import 'providers/video_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/chatbot_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/ranking_steps_screen.dart';
 import 'screens/step_counter_screen.dart';
 import 'screens/community_screen.dart';
 import 'screens/all_menu_screen.dart';
@@ -123,6 +126,7 @@ class AuthGate extends StatelessWidget {
           key: ValueKey(user.uid),
           providers: [
             ChangeNotifierProvider(create: (_) => ChatProvider()),
+            ChangeNotifierProvider(create: (_) => RankingProvider(service: const RankingService())),
           ],
           child: MainScreen(),
         );
@@ -145,7 +149,7 @@ class _MainScreenState extends State<MainScreen> {
     const ChatbotScreen(),      // 0
     const ProfileScreen(),      // 1
     const AllMenuScreen(),      // 2
-    const StepCounterScreen(),  // 3
+    const RankingStepsScreen(),  // 3
     const CommunityScreen(),    // 4
   ];
 

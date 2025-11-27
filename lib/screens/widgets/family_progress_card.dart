@@ -193,18 +193,38 @@ class FamilyProgressCard extends StatelessWidget {
                   ),
                 ),
 
-                SizedBox(height: 6), // 여기 간격!
+                const SizedBox(height: 6),
 
-                Text(
-                  "$weeklySteps / $weeklyGoal 걸음",
+                // 여기부터 전체 교체된 부분
+                RichText(
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                  text: TextSpan(
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87, // 기본색
+                    ),
+                    children: [
+                      TextSpan(
+                        text: "$weeklySteps",     // 성공/실패 색 적용되는 숫자
+                        style: TextStyle(
+                          color: isSuccess
+                              ? Colors.green[700]    // 성공: 초록색
+                              : Colors.redAccent,    // 실패: 빨간색
+                        ),
+                      ),
+                      TextSpan(
+                        text: " / $weeklyGoal 걸음",  // 🔥 나머지는 기본색
+                        style: const TextStyle(
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
+
 
             const SizedBox(height: 12),
 
