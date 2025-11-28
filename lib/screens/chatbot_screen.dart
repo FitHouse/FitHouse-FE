@@ -199,16 +199,18 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 if (message.videos.isNotEmpty)
                   _buildVideoRecommendations(message.videos),
 
+                // [수정된 부분] 버튼들이 잘리지 않도록 Wrap 사용
                 if (!isUser && isLastMessage)
                   Padding(
-                    padding: const EdgeInsets.only(top: 10.0, left: 0, right: 50),
-                    child: Row(
+                    padding: const EdgeInsets.only(top: 10.0), // 오른쪽 여백(50) 제거
+                    child: Wrap(
+                      spacing: 8.0,    // 가로 간격
+                      runSpacing: 8.0, // 세로 간격(줄바꿈 시)
                       children: [
                         _buildVideoListButton(context),
-                        const SizedBox(width: 10),
                         _buildFavoriteVideoButton(context),
                       ],
-                    )
+                    ),
                   ),
               ],
             ),
