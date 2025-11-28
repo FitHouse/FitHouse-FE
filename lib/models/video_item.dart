@@ -6,6 +6,7 @@ class VideoItem {
   final String toolNm;
   final String thumbnailUrl;
   final String videoUrl;
+  bool isFavorite;
 
   VideoItem({
     required this.trngNm,
@@ -15,6 +16,7 @@ class VideoItem {
     required this.toolNm,
     required this.thumbnailUrl,
     required this.videoUrl,
+    this.isFavorite = false,
   });
 
   factory VideoItem.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,7 @@ class VideoItem {
       toolNm: json["toolNm"] ?? "",
       thumbnailUrl: json["thumbnailUrl"] ?? "",
       videoUrl: json["videoUrl"] ?? "",
+      isFavorite: json["isFavorite"] ?? false,
     );
   }
 }

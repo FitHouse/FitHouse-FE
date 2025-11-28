@@ -1,10 +1,14 @@
+import 'dart:convert';
 import 'package:fithouse/screens/video_player_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../providers/video_provider.dart';
 import '../models/video_item.dart';
 import '../constants/colors.dart';
+import '../api/http_client.dart' show baseUrl;
 
 class VideoListScreen extends StatefulWidget {
   const VideoListScreen({super.key});
@@ -19,6 +23,77 @@ class _VideoListScreenState extends State<VideoListScreen> {
   String? tempFactor = "전체";
   String? tempLevel = "전체";
   String? tempTool = "전체";
+  bool isFilterOpen = true;
+
+  Future<bool> _checkFavorite(String videoUrl) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final idToken = await user!.getIdToken(true);
+
+    final res = await http.get(
+      Uri.parse('$baseUrl/api/favorite-video/check?videoUrl=$videoUrl'),
+      headers: {'Authorization': 'Bearer $idToken'},
+    );
+
+    print("CHECK RESPONSE = ${res.body}");
+
+    try {
+      final decoded = jsonDecode(res.body);
+      if (decoded is Map<String, dynamic>) {
+        return decoded["favorite"] == true;
+      }
+      if (decoded is bool) return decoded;
+    } catch (e) {
+      print("CHECK PARSE ERROR = $e");
+    }
+
+    return false;
+  }
+
+  Future<bool> _toggleFavorite(Map<String, dynamic> video) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final idToken = await user!.getIdToken();
+
+    final encodedUrl = Uri.encodeComponent(video["videoUrl"]);
+
+    final checkRes = await http.get(
+      Uri.parse('$baseUrl/api/favorite-video/check?videoUrl=$encodedUrl'),
+      headers: {'Authorization': 'Bearer $idToken'},
+    );
+
+    print("CHECK RESPONSE = ${checkRes.body}");
+
+    bool isFavorite = false;
+
+    try {
+      final decoded = jsonDecode(checkRes.body);
+
+      if (decoded is bool) {
+        isFavorite = decoded;
+      } else if (decoded is Map<String, dynamic>) {
+        isFavorite = decoded["favorite"] == true;
+      }
+    } catch (_) {}
+
+    if (isFavorite) {
+      await http.delete(
+        Uri.parse('$baseUrl/api/favorite-video?videoUrl=$encodedUrl'),
+        headers: {'Authorization': 'Bearer $idToken'},
+      );
+      return false;
+    }
+
+    await http.post(
+      Uri.parse('$baseUrl/api/favorite-video'),
+      headers: {
+        'Authorization': 'Bearer $idToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(video),
+    );
+
+    return true;
+  }
+
 
   @override
   void initState() {
@@ -68,145 +143,132 @@ class _VideoListScreenState extends State<VideoListScreen> {
 
   Widget _buildFilterArea(VideoProvider provider) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      color: Colors.white,
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
       child: Column(
         children: [
-          TextField(
-            decoration: InputDecoration(
-              hintText: "운동명 검색",
-              filled: true,
-              fillColor: Colors.grey[100],
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(20),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(20),
-                borderSide: BorderSide(color: buttonGreen, width: 2),
+          InkWell(
+            onTap: () => setState(() => isFilterOpen = !isFilterOpen),
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.tune, color: Colors.green[700]),
+                      const SizedBox(width: 8),
+                      Text(
+                        isFilterOpen ? "검색 옵션 닫기" : "검색 옵션 열기",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[800],
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Icon(
+                    isFilterOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: Colors.grey[600],
+                  ),
+                ],
               ),
             ),
-            style: const TextStyle(fontSize: 14),
-            onChanged: (v) => tempKeyword = v.trim(),
           ),
 
-          const SizedBox(height: 6),
+          if (isFilterOpen)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                children: [
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
 
-          Row(
-            children: [
-              Expanded(
-                child: _buildDropdown(
-                  label: "연령대",
-                  items: provider.ages,
-                  value: tempAge,
-                  onChanged: (v) => setState(() => tempAge = v),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildDropdown(
-                  label: "체력요인",
-                  items: provider.factors,
-                  value: tempFactor,
-                  onChanged: (v) => setState(() => tempFactor = v),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 6),
-
-          Row(
-            children: [
-              Expanded(
-                child: _buildDropdown(
-                  label: "체력수준",
-                  items: provider.levels,
-                  value: tempLevel,
-                  onChanged: (v) => setState(() => tempLevel = v),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildDropdown(
-                  label: "소도구",
-                  items: provider.tools,
-                  value: tempTool,
-                  onChanged: (v) => setState(() => tempTool = v),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 42,
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.black,
-                      backgroundColor: Colors.white,
-                      side: BorderSide(color: Colors.grey.shade400),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(22),
+                  TextField(
+                    decoration: InputDecoration(
+                      hintText: "운동명 검색",
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        borderSide: BorderSide(color: Colors.green, width: 2),
                       ),
                     ),
-                    onPressed: () {
-                      setState(() {
-                        tempKeyword = "";
-                        tempAge = "전체";
-                        tempFactor = "전체";
-                        tempLevel = "전체";
-                        tempTool = "전체";
-                      });
-
-                      provider.applyFilters(
-                        newKeyword: "",
-                        newAge: "전체",
-                        newFactor: "전체",
-                        newLevel: "전체",
-                        newTool: "전체",
-                      );
-                    },
-                    child: const Text("초기화", style: TextStyle(fontSize: 14)),
+                    style: const TextStyle(fontSize: 14),
+                    onChanged: (v) => tempKeyword = v.trim(),
                   ),
-                ),
-              ),
 
-              const SizedBox(width: 10),
+                  const SizedBox(height: 10),
 
-              Expanded(
-                child: SizedBox(
-                  height: 42,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: buttonGreen,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(22),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDropdown(
+                          label: "연령대",
+                          items: provider.ages,
+                          value: tempAge,
+                          onChanged: (v) => setState(() => tempAge = v),
+                        ),
                       ),
-                    ),
-                    onPressed: () {
-                      provider.applyFilters(
-                        newKeyword: tempKeyword,
-                        newAge: tempAge ?? "전체",
-                        newFactor: tempFactor ?? "전체",
-                        newLevel: tempLevel ?? "전체",
-                        newTool: tempTool ?? "전체",
-                      );
-                    },
-                    child: const Text(
-                      "검색",
-                      style: TextStyle(color: Colors.white, fontSize: 14),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildDropdown(
+                          label: "체력요인",
+                          items: provider.factors,
+                          value: tempFactor,
+                          onChanged: (v) => setState(() => tempFactor = v),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+
+                  const SizedBox(height: 12),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDropdown(
+                          label: "체력수준",
+                          items: provider.levels,
+                          value: tempLevel,
+                          onChanged: (v) => setState(() => tempLevel = v),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildDropdown(
+                          label: "소도구",
+                          items: provider.tools,
+                          value: tempTool,
+                          onChanged: (v) => setState(() => tempTool = v),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  Row(
+                    children: [
+                      Expanded(child: _resetButton(provider)),
+                      const SizedBox(width: 10),
+                      Expanded(child: _searchButton(provider)),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
         ],
       ),
     );
@@ -263,21 +325,45 @@ class _VideoListScreenState extends State<VideoListScreen> {
       child: ListTile(
         leading: Image.network(
           v.thumbnailUrl,
-          width: 90,
-          height: 90,
+          width: 90, height: 90,
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => Container(
-            width: 90,
-            height: 90,
+            width: 90, height: 90,
             color: Colors.grey[300],
             child: const Icon(Icons.broken_image),
           ),
         ),
+
         title: Text(v.trngNm, maxLines: 2, overflow: TextOverflow.ellipsis),
         subtitle: Text(
           "${v.aggrpNm} / ${v.ftnsFctrNm} / ${v.ftnsLvlNm}",
           style: const TextStyle(fontSize: 12),
         ),
+
+        trailing: GestureDetector(
+          onTap: () async {
+            final body = {
+              "videoUrl": v.videoUrl,
+              "trngNm": v.trngNm,
+              "thumbnailUrl": v.thumbnailUrl,
+              "aggrpNm": v.aggrpNm,
+              "ftnsFctrNm": v.ftnsFctrNm,
+              "ftnsLvlNm": v.ftnsLvlNm,
+              "toolNm": v.toolNm,
+            };
+
+            bool newState = await _toggleFavorite(body);
+            setState(() {
+              v.isFavorite = newState;
+            });
+          },
+          child: Icon(
+            v.isFavorite ? Icons.star : Icons.star_border,
+            color: v.isFavorite ? Colors.amber : Colors.grey,
+            size: 26,
+          ),
+        ),
+
         onTap: () {
           showDialog(
             context: context,
@@ -323,6 +409,71 @@ class _VideoListScreenState extends State<VideoListScreen> {
         child: Text(
           text,
           style: const TextStyle(fontSize: 16),
+        ),
+      ),
+    );
+  }
+
+  Widget _resetButton(VideoProvider provider) {
+    return SizedBox(
+      height: 42,
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.black,
+          backgroundColor: Colors.white,
+          side: BorderSide(color: Colors.grey.shade400),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+        ),
+        onPressed: () {
+          setState(() {
+            tempKeyword = "";
+            tempAge = "전체";
+            tempFactor = "전체";
+            tempLevel = "전체";
+            tempTool = "전체";
+          });
+
+          provider.applyFilters(
+            newKeyword: "",
+            newAge: "전체",
+            newFactor: "전체",
+            newLevel: "전체",
+            newTool: "전체",
+          );
+        },
+        child: const Text("초기화", style: TextStyle(fontSize: 14)),
+      ),
+    );
+  }
+
+  Widget _searchButton(VideoProvider provider) {
+    return SizedBox(
+      height: 42,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: buttonGreen,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+        ),
+        onPressed: () {
+          provider.applyFilters(
+            newKeyword: tempKeyword,
+            newAge: tempAge ?? "전체",
+            newFactor: tempFactor ?? "전체",
+            newLevel: tempLevel ?? "전체",
+            newTool: tempTool ?? "전체",
+          );
+
+          setState(() {
+            isFilterOpen = false;
+          });
+        },
+        child: const Text(
+          "검색",
+          style: TextStyle(color: Colors.white, fontSize: 14),
         ),
       ),
     );

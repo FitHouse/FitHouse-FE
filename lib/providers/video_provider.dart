@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -71,6 +72,22 @@ class VideoProvider extends ChangeNotifier {
             .map((e) => VideoItem.fromJson(e))
             .toList();
 
+        for (var v in videos) {
+          print("VIDEO URL = ${v.videoUrl}");
+        }
+
+        final urlCount = <String, int>{};
+        for (var v in videos) {
+          urlCount[v.videoUrl] = (urlCount[v.videoUrl] ?? 0) + 1;
+        }
+        urlCount.forEach((url, cnt) {
+          if (cnt > 1) {
+            print("중복 URL ($cnt개): $url");
+          }
+        });
+
+        await _applyFavoriteState();
+
         currentPage = data["currentPage"];
         totalPages = data["totalPages"];
         totalCount = data["totalCount"];
@@ -83,6 +100,37 @@ class VideoProvider extends ChangeNotifier {
 
     isLoading = false;
     notifyListeners();
+  }
+
+  Future<void> _applyFavoriteState() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final idToken = await user!.getIdToken();
+
+    final futures = videos.map((v) async {
+      final res = await http.get(
+        Uri.parse('$baseUrl/api/favorite-video/check?videoUrl=${Uri.encodeComponent(v.videoUrl)}'),
+        headers: {'Authorization': 'Bearer $idToken'},
+      );
+
+      try {
+        final decoded = jsonDecode(res.body);
+
+        bool isFav = false;
+
+        if (decoded is bool) {
+          isFav = decoded;
+        } else if (decoded is Map<String, dynamic>) {
+          isFav = decoded["favorite"] == true;
+        }
+
+        v.isFavorite = isFav;
+      } catch (e) {
+        print("favorite 파싱 오류: $e");
+        v.isFavorite = false;
+      }
+    }).toList();
+
+    await Future.wait(futures);
   }
 
   Future<void> applyFilters({

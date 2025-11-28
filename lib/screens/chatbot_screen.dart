@@ -12,6 +12,7 @@ import '../models/chat_message.dart';
 import '../models/exercise_video.dart';
 
 import 'video_list_screen.dart';
+import 'favorite_video_screen.dart';
 
 import '../api/http_client.dart' show baseUrl, httpClient, authHeaders;
 
@@ -200,8 +201,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
                 if (!isUser && isLastMessage)
                   Padding(
-                    padding: const EdgeInsets.only(top: 10.0),
-                    child: _buildVideoListButton(context),
+                    padding: const EdgeInsets.only(top: 10.0, left: 0, right: 50),
+                    child: Row(
+                      children: [
+                        _buildVideoListButton(context),
+                        const SizedBox(width: 10),
+                        _buildFavoriteVideoButton(context),
+                      ],
+                    )
                   ),
               ],
             ),
@@ -273,6 +280,35 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       ),
       child: const Text(
         "운동 영상 모아보기",
+        style: TextStyle(
+          fontSize: 14,
+          color: Colors.black87,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFavoriteVideoButton(BuildContext context) {
+    return OutlinedButton(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FavoriteVideoScreen(),
+          ),
+        );
+      },
+      style: OutlinedButton.styleFrom(
+        backgroundColor: Colors.white,
+        side: BorderSide(color: Colors.grey.shade300),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(30),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      ),
+      child: const Text(
+        "즐겨찾기 영상",
         style: TextStyle(
           fontSize: 14,
           color: Colors.black87,
