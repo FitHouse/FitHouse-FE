@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:fithouse/screens/group_screen.dart';
 
 import 'community_detail_screen.dart';
 import 'community_compose_screen.dart';
 import '../api/http_client.dart' show baseUrl, getJson;
 
-/// (간단) 가족 미소속 에러 - 당장은 이 파일 안에 로컬 클래스로 둔다.
-/// 나중에 재사용 필요해지면 lib/error/no_family_joined_error.dart로 분리하면 됨.
+
 class NoFamilyJoinedError implements Exception {
   final String message;
   NoFamilyJoinedError([this.message = '소속된 가족이 없습니다.']);
@@ -331,9 +331,37 @@ class _CommunityTabState extends State<CommunityTab>
       return RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          children: const [
-            SizedBox(height: 120),
-            _NoFamilyView(),
+          children: [
+            const SizedBox(height: 120),
+            const _NoFamilyView(),
+            const SizedBox(height: 20),
+
+            Center(
+              child: SizedBox(
+                width: MediaQuery.of(context).size.width * 0.65,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const GroupScreen()),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(40),
+                    ),
+                  ),
+                  child: const Text(
+                    "가족 그룹 생성 / 가입",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 40),
           ],
         ),
       );
@@ -493,7 +521,6 @@ class _CommunityTabState extends State<CommunityTab>
   }
 }
 
-/// 가족 미소속 전용 뷰 (가벼운 빈 상태 화면)
 class _NoFamilyView extends StatelessWidget {
   const _NoFamilyView();
 

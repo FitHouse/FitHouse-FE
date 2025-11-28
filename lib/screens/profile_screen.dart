@@ -6,6 +6,7 @@ import 'package:fithouse/api/http_client.dart';
 import 'package:fithouse/models/family_daily_record.dart';
 import 'package:fithouse/main.dart';
 import 'package:fithouse/util/pdf_generator.dart';
+import 'package:fithouse/screens/group_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -240,9 +241,40 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
         body: RefreshIndicator(
           onRefresh: _loadFamily,
           child: ListView(
-            children: const [
-              SizedBox(height: 120),
-              _NoFamilyView(),
+            padding: const EdgeInsets.all(16),
+            children: [
+              const SizedBox(height: 120),
+              const _NoFamilyView(),
+
+              const SizedBox(height: 20),
+
+              Center(
+                child: SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.65,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const GroupScreen()),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(40),
+                      ),
+                    ),
+                    child: const Text(
+                      "가족 그룹 생성 / 가입",
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
             ],
           ),
         ),
