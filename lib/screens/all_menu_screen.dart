@@ -13,6 +13,7 @@ import 'record/record_screen.dart';
 import 'setting_screen.dart';
 import 'video_list_screen.dart';
 import 'ranking_steps_screen.dart';
+import 'favorite_video_screen.dart'; // [추가됨] 즐겨찾기 화면 import
 
 import '../providers/video_provider.dart';
 
@@ -34,7 +35,7 @@ class AllMenuScreen extends StatelessWidget {
                 _buildSection(
                   context,
                   title: '💪 건강 & 기록',
-                  crossAxisCount: 3, // [수정됨] 2 -> 3으로 변경 (한 줄에 3개씩)
+                  crossAxisCount: 3, // 한 줄에 3개씩 배치
                   items: [
                     {
                       'icon': Icons.diversity_1,
@@ -57,7 +58,6 @@ class AllMenuScreen extends StatelessWidget {
                     {
                       'icon': Icons.emoji_events_rounded,
                       'label': '랭킹',
-                      // Provider 유지
                       'page': ChangeNotifierProvider.value(
                         value: context.read<RankingProvider>(),
                         child: const RankingStepsScreen(initialIndex: 1),
@@ -72,6 +72,17 @@ class AllMenuScreen extends StatelessWidget {
                         child: const VideoListScreen(),
                       ),
                       'color': Colors.redAccent
+                    },
+                    // [추가됨] 즐겨찾기 영상 버튼
+                    {
+                      'icon': Icons.star_rounded, // 별 모양 아이콘
+                      'label': '영상 즐겨찾기',
+                      // 혹시 모를 상황 대비 VideoProvider 연결 (없어도 작동하지만 안전하게)
+                      'page': ChangeNotifierProvider.value(
+                        value: context.read<VideoProvider>(),
+                        child: const FavoriteVideoScreen(),
+                      ),
+                      'color': Colors.pinkAccent // 분홍색
                     },
                   ],
                 ),
@@ -147,7 +158,7 @@ class AllMenuScreen extends StatelessWidget {
         required List<Map<String, dynamic>> items,
         int crossAxisCount = 3,
       }) {
-    // crossAxisCount가 3이면 0.9 비율(세로형), 2이면 1.4 비율(가로형) 자동 적용
+    // 3열일 때는 세로로 약간 길게(0.9), 2열일 때는 가로로 넓게(1.4)
     final double aspectRatio = crossAxisCount == 2 ? 1.4 : 0.9;
 
     return Column(
