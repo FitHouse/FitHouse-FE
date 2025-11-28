@@ -23,7 +23,7 @@ class FamilySteps {
     familyId: j['familyId'] ?? 0,
     name: j['name'] ?? '익명',
     today: j['today'] ?? j['steps'] ?? 0,
-    weekly: j['weekly'] ?? j['week'] ?? 0, // ✅ weekly 필드명 우선
+    weekly: j['weekly'] ?? j['week'] ?? 0, // weekly 필드명 우선
     monthly: j['monthly'] ?? j['month'] ?? 0,
     goal: j['goal'] ?? 10000,
   );
@@ -38,7 +38,7 @@ class FamilySteps {
     'goal': goal,
   };
 
-  // ✅ copyWith 추가
+  // copyWith 추가
   FamilySteps copyWith({
     int? userId,
     int? familyId,
@@ -64,7 +64,7 @@ class FamilySteps {
 class FamilyWeeklySummary {
   final int familyId;
   final int weeklyGoal;
-  final int totalSteps;
+  final int pedometerTotalSteps;
   final int successCount;
   final bool success;
   final int level;
@@ -74,7 +74,7 @@ class FamilyWeeklySummary {
   const FamilyWeeklySummary({
     required this.familyId,
     required this.weeklyGoal,
-    required this.totalSteps,
+    required this.pedometerTotalSteps,
     required this.successCount,
     required this.success,
     required this.level,
@@ -86,7 +86,7 @@ class FamilyWeeklySummary {
       FamilyWeeklySummary(
         familyId: j['familyId'] ?? 0,
         weeklyGoal: j['weeklyGoal'] ?? 0,
-        totalSteps: j['totalSteps'] ?? 0,
+        pedometerTotalSteps: j['pedometerTotalSteps'] ?? 0,
         successCount: j['successCount'] ?? 0,
         success: j['success'] ?? false,
         level: j['level'] ?? 0,
@@ -97,7 +97,7 @@ class FamilyWeeklySummary {
   Map<String, dynamic> toJson() => {
     'familyId': familyId,
     'weeklyGoal': weeklyGoal,
-    'totalSteps': totalSteps,
+    'pedometerTotalSteps': pedometerTotalSteps,
     'successCount': successCount,
     'success': success,
     'level': level,
