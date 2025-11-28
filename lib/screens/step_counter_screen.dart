@@ -5,6 +5,7 @@ import 'package:fithouse/models/family_steps.dart';
 import 'package:fithouse/screens/widgets/family_steps_widget.dart';
 import 'package:fithouse/screens/widgets/family_progress_card.dart';
 import 'package:fithouse/api/http_client.dart' show baseUrl, httpClient, authHeaders;
+import 'package:fithouse/screens/group_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -444,14 +445,44 @@ class StepCounterScreenState extends State<StepCounterScreen>
         body: RefreshIndicator(
           onRefresh: _loadAll,
           child: ListView(
-            children: const [
-              SizedBox(height: 120),
-              _NoFamilyView(),
+            children: [
+              const SizedBox(height: 120),
+              const _NoFamilyView(),
+              const SizedBox(height: 20),
+
+              Center(
+                child: SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.65,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const GroupScreen()),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(40),
+                      ),
+                    ),
+                    child: const Text(
+                      "가족 그룹 생성 / 가입",
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 40),
             ],
           ),
         ),
       );
     }
+
 
     final familyCount = _family.isNotEmpty ? _family.length : 1;
     final weeklyGoal = _myGoal * familyCount * 7;
