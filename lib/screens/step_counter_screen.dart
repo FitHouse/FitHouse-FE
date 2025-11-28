@@ -302,7 +302,7 @@ class StepCounterScreenState extends State<StepCounterScreen>
     if (!mounted) return;
 
     setState(() {
-      pastWeeklySteps = summary.week?.totalSteps ?? 0;
+      pastWeeklySteps = summary.week?.pedometerTotalSteps ?? 0;
       pastWeeklyGoal = summary.week?.weeklyGoal ?? 0;
 
       pastFrom = summary.from;
@@ -456,7 +456,7 @@ class StepCounterScreenState extends State<StepCounterScreen>
     final familyCount = _family.isNotEmpty ? _family.length : 1;
     final weeklyGoal = _myGoal * familyCount * 7;
 
-    final weeklySteps = _familySummary?.week?.totalSteps ?? 0;
+    final weeklySteps = _familySummary?.week?.pedometerTotalSteps ?? 0;
 
     final totalTodaySteps = _family.isNotEmpty
         ? _family.map((f) => f.today).reduce((a, b) => a + b)
