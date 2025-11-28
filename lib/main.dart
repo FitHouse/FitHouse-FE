@@ -11,6 +11,7 @@ import 'package:permission_handler/permission_handler.dart';
 // Providers
 import 'providers/chat_provider.dart';
 import 'providers/video_provider.dart';
+import 'providers/bottom_nav_provider.dart'; // [필수] 방금 만든 파일 import
 
 // Screens
 import 'screens/auth/login_screen.dart';
@@ -20,19 +21,15 @@ import 'screens/ranking_steps_screen.dart';
 import 'screens/step_counter_screen.dart';
 import 'screens/community_screen.dart';
 import 'screens/all_menu_screen.dart';
-import 'screens/group_screen.dart'; // 라우트용
-import 'screens/record/record_screen.dart'; // 라우트용
 
 // Constants
 import 'constants/colors.dart';
 
 // 전역 RouteObserver 선언
-final RouteObserver<ModalRoute<void>> routeObserver =
-RouteObserver<ModalRoute<void>>();
+final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
 
 Future<void> requestNotificationPermission() async {
   final status = await Permission.notification.status;
-
   if (status.isDenied || status.isRestricted) {
     await Permission.notification.request();
   }
@@ -40,14 +37,16 @@ Future<void> requestNotificationPermission() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  requestNotificationPermission();
-
+  await requestNotificationPermission();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => VideoProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => VideoProvider()),
+        // 앱 전체에서 탭 상태를 공유하기 위해 여기에 등록
+        ChangeNotifierProvider(create: (_) => BottomNavProvider()),
+      ],
       child: const FitHouseApp(),
     ),
   );
@@ -65,10 +64,8 @@ class FitHouseApp extends StatelessWidget {
       theme: ThemeData(
         scaffoldBackgroundColor: Colors.white,
         primaryColor: mainGreen,
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
         appBarTheme: const AppBarTheme(
-          backgroundColor: const Color(0xFFC7EF98),
+          backgroundColor: Color(0xFFC7EF98),
           foregroundColor: black,
           elevation: 0,
         ),
@@ -79,28 +76,10 @@ class FitHouseApp extends StatelessWidget {
           showUnselectedLabels: true,
           type: BottomNavigationBarType.fixed,
         ),
-        textTheme: const TextTheme(
-          bodyLarge: TextStyle(color: black),
-          bodyMedium: TextStyle(color: Colors.black87),
-        ),
         fontFamily: 'PyeojinGothic',
         useMaterial3: false,
       ),
       home: const AuthGate(),
-      routes: {
-        '/login': (_) => const LoginScreen(),
-        '/auth': (_) => const AuthGate(),
-      },
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('ko', ''),
-        Locale('en', ''),
-      ],
-      locale: const Locale('ko', ''),
     );
   }
 }
@@ -128,7 +107,7 @@ class AuthGate extends StatelessWidget {
             ChangeNotifierProvider(create: (_) => ChatProvider()),
             ChangeNotifierProvider(create: (_) => RankingProvider(service: const RankingService())),
           ],
-          child: MainScreen(),
+          child: const MainScreen(),
         );
       },
     );
@@ -142,48 +121,47 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 0;
-
-  // 순서 변경: 챗봇 -> 가족운동 -> 전체 -> 만보기 -> 커뮤니티
+  // [탭 순서] 0:챗봇, 1:가족, 2:홈(전체메뉴), 3:만보기, 4:커뮤니티
   final List<Widget> _pages = [
-    const ChatbotScreen(),      // 0
-    const ProfileScreen(),      // 1
-    const AllMenuScreen(),      // 2
-    const RankingStepsScreen(),  // 3
-    const CommunityScreen(),    // 4
+    const ChatbotScreen(),
+    const ProfileScreen(),
+    const AllMenuScreen(),
+    const StepCounterScreen(),
+    const CommunityScreen(),
   ];
-
-  void _onItemTapped(int index) {
-    setState(() => _selectedIndex = index);
-
-    // 만보기 탭(이제 index가 3번)으로 이동할 때 → 항상 이번 주로 초기화
-    if (index == 3) {
-      StepCounterScreenState.instance?.onTabRevisited();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
+    // Provider를 통해 현재 탭 번호를 가져옵니다.
+    final navProvider = Provider.of<BottomNavProvider>(context);
+    final currentIndex = navProvider.currentIndex;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFFA9C18D),
         elevation: 0,
-        centerTitle: false, // 왼쪽 정렬
-
+        centerTitle: false,
+        // [중요] 홈(2번)이 아닐 때만 '뒤로가기(홈으로)' 버튼 표시
+        leading: currentIndex != 2
+            ? IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            // 뒤로가기 누르면 홈(2번)으로 이동
+            navProvider.changePage(2);
+          },
+        )
+            : null,
         title: Row(
           children: [
-            // 로고 이미지
             Image.asset(
               'assets/images/splash_logo.png',
               height: 32,
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) {
-                return const Icon(Icons.home_filled,
-                    color: mainGreen, size: 28);
+                return const Icon(Icons.home_filled, color: mainGreen, size: 28);
               },
             ),
             const SizedBox(width: 8),
-            // 텍스트
             const Text(
               'FitHouse',
               style: TextStyle(
@@ -197,15 +175,23 @@ class _MainScreenState extends State<MainScreen> {
         ),
       ),
 
-      // 화면 상태 유지 (Dispose 방지)
+      // IndexedStack: 탭이 바뀌어도 화면 상태를 유지해줍니다.
       body: IndexedStack(
-        index: _selectedIndex,
+        index: currentIndex,
         children: _pages,
       ),
 
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
+        currentIndex: currentIndex,
+        onTap: (index) {
+          // 탭을 누르면 Provider에게 페이지 변경 요청
+          navProvider.changePage(index);
+
+          // 만약 만보기(3번)를 눌렀다면 리프레시 로직 실행
+          if (index == 3) {
+            StepCounterScreenState.instance?.onTabRevisited();
+          }
+        },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.chat), label: '챗봇'),
           BottomNavigationBarItem(icon: Icon(Icons.diversity_1), label: '가족운동'),

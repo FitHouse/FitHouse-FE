@@ -1,21 +1,20 @@
-import 'package:fithouse/providers/chat_provider.dart';
-import 'package:fithouse/providers/ranking_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/colors.dart';
 
-import 'chatbot_screen.dart';
-import 'profile_screen.dart';
-import 'step_counter_screen.dart';
-import 'community_screen.dart';
-import 'group_screen.dart';
-import 'record/record_screen.dart';
-import 'setting_screen.dart';
-import 'video_list_screen.dart';
-import 'ranking_steps_screen.dart';
-import 'favorite_video_screen.dart'; // [추가됨] 즐겨찾기 화면 import
-
+// Providers
+import '../providers/bottom_nav_provider.dart'; // [필수]
 import '../providers/video_provider.dart';
+import '../providers/chat_provider.dart';
+import '../providers/ranking_provider.dart';
+
+// Screens (탭 이동이 아닌 실제 이동이 필요한 페이지들)
+import 'record/record_screen.dart';
+import 'video_list_screen.dart';
+import 'group_screen.dart';
+import 'setting_screen.dart';
+import 'ranking_steps_screen.dart';
+import 'favorite_video_screen.dart';
 
 class AllMenuScreen extends StatelessWidget {
   const AllMenuScreen({super.key});
@@ -23,6 +22,7 @@ class AllMenuScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -35,29 +35,33 @@ class AllMenuScreen extends StatelessWidget {
                 _buildSection(
                   context,
                   title: '💪 건강 & 기록',
-                  crossAxisCount: 3, // 한 줄에 3개씩 배치
+                  crossAxisCount: 3,
                   items: [
                     {
                       'icon': Icons.diversity_1,
                       'label': '가족핏',
-                      'page': const ProfileScreen(),
+                      'type': 'tab', // 탭 이동
+                      'index': 1,    // 가족운동 탭
                       'color': Colors.indigo
                     },
                     {
                       'icon': Icons.fitness_center,
                       'label': '운동 기록',
+                      'type': 'page', // 페이지 이동
                       'page': const RecordScreen(),
                       'color': Colors.orange
                     },
                     {
                       'icon': Icons.directions_walk,
                       'label': '만보기',
-                      'page': const StepCounterScreen(),
+                      'type': 'tab', // 탭 이동
+                      'index': 3,    // 만보기 탭
                       'color': Colors.blue
                     },
                     {
                       'icon': Icons.emoji_events_rounded,
                       'label': '랭킹',
+                      'type': 'page',
                       'page': ChangeNotifierProvider.value(
                         value: context.read<RankingProvider>(),
                         child: const RankingStepsScreen(initialIndex: 1),
@@ -67,22 +71,19 @@ class AllMenuScreen extends StatelessWidget {
                     {
                       'icon': Icons.ondemand_video,
                       'label': '운동 영상',
+                      'type': 'page',
                       'page': ChangeNotifierProvider.value(
                         value: context.read<VideoProvider>(),
                         child: const VideoListScreen(),
                       ),
                       'color': Colors.redAccent
                     },
-                    // [추가됨] 즐겨찾기 영상 버튼
                     {
-                      'icon': Icons.star_rounded, // 별 모양 아이콘
+                      'icon': Icons.star_rounded,
                       'label': '영상 즐겨찾기',
-                      // 혹시 모를 상황 대비 VideoProvider 연결 (없어도 작동하지만 안전하게)
-                      'page': ChangeNotifierProvider.value(
-                        value: context.read<VideoProvider>(),
-                        child: const FavoriteVideoScreen(),
-                      ),
-                      'color': Colors.pinkAccent // 분홍색
+                      'type': 'page',
+                      'page': const FavoriteVideoScreen(),
+                      'color': Colors.pinkAccent
                     },
                   ],
                 ),
@@ -98,22 +99,22 @@ class AllMenuScreen extends StatelessWidget {
                     {
                       'icon': Icons.chat_bubble_outline,
                       'label': '커뮤니티',
-                      'page': const CommunityScreen(initialIndex: 0),
+                      'type': 'community', // 커뮤니티 내부 탭 이동
+                      'tabIndex': 0,       // 게시판
                       'color': Colors.brown
                     },
                     {
                       'icon': Icons.map_outlined,
                       'label': '산책로 추천',
-                      'page': const CommunityScreen(initialIndex: 1),
+                      'type': 'community', // 커뮤니티 내부 탭 이동
+                      'tabIndex': 1,       // 지도
                       'color': Colors.green
                     },
                     {
                       'icon': Icons.chat,
                       'label': 'AI 챗봇',
-                      'page': ChangeNotifierProvider.value(
-                        value: context.read<ChatProvider>(),
-                        child: const ChatbotScreen(),
-                      ),
+                      'type': 'tab', // 탭 이동
+                      'index': 0,    // 챗봇 탭
                       'color': Colors.indigo
                     },
                   ],
@@ -130,18 +131,19 @@ class AllMenuScreen extends StatelessWidget {
                     {
                       'icon': Icons.vpn_key,
                       'label': '가족 코드',
+                      'type': 'page',
                       'page': const GroupScreen(),
                       'color': Colors.teal
                     },
                     {
                       'icon': Icons.settings,
                       'label': '환경 설정',
+                      'type': 'page',
                       'page': const SettingScreen(),
                       'color': Colors.grey
                     },
                   ],
                 ),
-
                 const SizedBox(height: 20),
               ],
             ),
@@ -151,27 +153,12 @@ class AllMenuScreen extends StatelessWidget {
     );
   }
 
-  // 섹션 빌더 함수
-  Widget _buildSection(
-      BuildContext context, {
-        required String title,
-        required List<Map<String, dynamic>> items,
-        int crossAxisCount = 3,
-      }) {
-    // 3열일 때는 세로로 약간 길게(0.9), 2열일 때는 가로로 넓게(1.4)
+  Widget _buildSection(BuildContext context, {required String title, required List<Map<String, dynamic>> items, int crossAxisCount = 3}) {
     final double aspectRatio = crossAxisCount == 2 ? 1.4 : 0.9;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
+        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
         const SizedBox(height: 15),
         GridView.builder(
           physics: const NeverScrollableScrollPhysics(),
@@ -179,13 +166,9 @@ class AllMenuScreen extends StatelessWidget {
           itemCount: items.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
-            mainAxisSpacing: 15,
-            crossAxisSpacing: 15,
-            childAspectRatio: aspectRatio,
+            mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: aspectRatio,
           ),
-          itemBuilder: (context, index) {
-            return _buildMenuCard(context, items[index]);
-          },
+          itemBuilder: (context, index) => _buildMenuCard(context, items[index]),
         ),
       ],
     );
@@ -194,15 +177,25 @@ class AllMenuScreen extends StatelessWidget {
   Widget _buildMenuCard(BuildContext context, Map<String, dynamic> item) {
     return InkWell(
       onTap: () {
-        if (item['page'] != null) {
+        final type = item['type'];
+
+        // 1. 메인 탭 전환 (가족, 만보기, 챗봇)
+        if (type == 'tab') {
+          context.read<BottomNavProvider>().changePage(item['index']);
+        }
+        // 2. 커뮤니티 내부 탭 전환 (게시판 vs 산책로)
+        else if (type == 'community') {
+          context.read<BottomNavProvider>().goToCommunity(initialTab: item['tabIndex']);
+        }
+        // 3. 새 페이지 이동 (설정, 기록, 영상 등) - 하단바 가려짐 (정상)
+        else if (type == 'page' && item['page'] != null) {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => item['page']),
           );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('준비 중인 기능입니다.')),
-          );
+        }
+        else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('준비 중인 기능입니다.')));
         }
       },
       borderRadius: BorderRadius.circular(16),
@@ -211,40 +204,18 @@ class AllMenuScreen extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.grey.withOpacity(0.2)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.05),
-              spreadRadius: 2,
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.05), spreadRadius: 2, blurRadius: 10, offset: const Offset(0, 5))],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: (item['color'] as Color).withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                item['icon'],
-                size: 28,
-                color: item['color'],
-              ),
+              decoration: BoxDecoration(color: (item['color'] as Color).withOpacity(0.1), shape: BoxShape.circle),
+              child: Icon(item['icon'], size: 28, color: item['color']),
             ),
             const SizedBox(height: 10),
-            Text(
-              item['label'],
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            Text(item['label'], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87), textAlign: TextAlign.center),
           ],
         ),
       ),
