@@ -32,6 +32,20 @@ class StepService : Service(), SensorEventListener {
 
         prefs = getSharedPreferences("steps", Context.MODE_PRIVATE)
 
+        // [추가] 오늘 날짜 기준으로 baseline 초기화 (6보 지연 문제 해결 핵심)
+        val todayStr = LocalDate.now().toString()
+        val savedDate = prefs.getString("date", "")
+
+        if (savedDate != todayStr) {
+            prefs.edit()
+                .putInt("baseline", -1)                // baseline 초기화
+                .putInt("todaySteps", 0)               // 오늘 걸음수 초기화
+                .putBoolean("baseline_initialized", false)  // 첫 이벤트에서 baseline 다시 잡기
+                .putString("date", todayStr)           // 날짜 업데이트
+                .apply()
+        }
+
+        // 기존 로직
         baseline = prefs.getInt("baseline", -1)
         todaySteps = prefs.getInt("todaySteps", 0)
         lastDate = prefs.getString("date", "") ?: ""
@@ -82,6 +96,7 @@ class StepService : Service(), SensorEventListener {
                 .putString("date", todayStr)
                 .putInt("baseline", baseline)
                 .putInt("todaySteps", 0)
+                .putBoolean("baseline_initialized", false)
                 .apply()
 
             updateNotification(0)
