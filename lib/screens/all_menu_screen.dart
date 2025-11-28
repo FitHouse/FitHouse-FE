@@ -1,4 +1,5 @@
 import 'package:fithouse/providers/chat_provider.dart';
+import 'package:fithouse/providers/ranking_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/colors.dart';
@@ -11,6 +12,8 @@ import 'group_screen.dart';
 import 'record/record_screen.dart';
 import 'setting_screen.dart';
 import 'video_list_screen.dart';
+import 'ranking_steps_screen.dart';
+
 import '../providers/video_provider.dart';
 
 class AllMenuScreen extends StatelessWidget {
@@ -19,23 +22,19 @@ class AllMenuScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // [수정 1] appBar 부분을 아예 삭제했습니다.
-
-      // [수정 2] 상단 상태바(배터리 등)와 겹치지 않게 SafeArea로 감쌉니다.
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(20.0),
             child: Column(
               children: [
-                // 상단에 약간의 여백 추가 (너무 딱 붙지 않게)
                 const SizedBox(height: 10),
 
-                // 1. 건강 & 기록 섹션 (2열 배치 적용됨)
+                // 1. 건강 & 기록 섹션
                 _buildSection(
                   context,
                   title: '💪 건강 & 기록',
-                  crossAxisCount: 2, // 2열
+                  crossAxisCount: 3, // [수정됨] 2 -> 3으로 변경 (한 줄에 3개씩)
                   items: [
                     {
                       'icon': Icons.diversity_1,
@@ -56,6 +55,16 @@ class AllMenuScreen extends StatelessWidget {
                       'color': Colors.blue
                     },
                     {
+                      'icon': Icons.emoji_events_rounded,
+                      'label': '랭킹',
+                      // Provider 유지
+                      'page': ChangeNotifierProvider.value(
+                        value: context.read<RankingProvider>(),
+                        child: const RankingStepsScreen(initialIndex: 1),
+                      ),
+                      'color': Colors.amber
+                    },
+                    {
                       'icon': Icons.ondemand_video,
                       'label': '운동 영상',
                       'page': ChangeNotifierProvider.value(
@@ -69,7 +78,7 @@ class AllMenuScreen extends StatelessWidget {
 
                 const SizedBox(height: 30),
 
-                // 2. 커뮤니티 & 정보 섹션 (3열)
+                // 2. 소통 & 정보 섹션
                 _buildSection(
                   context,
                   title: '🗣️ 소통 & 정보',
@@ -101,7 +110,7 @@ class AllMenuScreen extends StatelessWidget {
 
                 const SizedBox(height: 30),
 
-                // 3. 관리 & 설정 섹션 (3열)
+                // 3. 관리 & 설정 섹션
                 _buildSection(
                   context,
                   title: '⚙️ 관리 & 설정',
@@ -131,14 +140,14 @@ class AllMenuScreen extends StatelessWidget {
     );
   }
 
-  // 섹션 빌더 함수 (crossAxisCount 지원)
+  // 섹션 빌더 함수
   Widget _buildSection(
       BuildContext context, {
         required String title,
         required List<Map<String, dynamic>> items,
-        int crossAxisCount = 3, // 기본값 3열
+        int crossAxisCount = 3,
       }) {
-    // 2열일 때는 가로로 넓게(1.4), 3열일 때는 세로로 약간 길게(0.9)
+    // crossAxisCount가 3이면 0.9 비율(세로형), 2이면 1.4 비율(가로형) 자동 적용
     final double aspectRatio = crossAxisCount == 2 ? 1.4 : 0.9;
 
     return Column(
