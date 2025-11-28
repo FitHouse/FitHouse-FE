@@ -92,6 +92,8 @@ class _SettingScreenState extends State<SettingScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('로그아웃 되었습니다.')),
     );
+    // 로그아웃 후 화면 닫기 (로그인 화면으로 돌아가게 됨 - AuthGate 덕분)
+    Navigator.pop(context);
   }
 
   Future<void> _openEditProfile() async {
@@ -196,31 +198,60 @@ class _SettingScreenState extends State<SettingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 로딩 중 표시
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: const Text('환경 설정', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18)),
+          centerTitle: true,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
+
+    // 에러 발생 시
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, size: 36),
-              const SizedBox(height: 8),
-              Text(
-                '프로필 불러오기 실패',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 12),
-              ElevatedButton(onPressed: _load, child: const Text('다시 시도'))
-            ],
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: const Text('환경 설정', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18)),
+          centerTitle: true,
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 36),
+                const SizedBox(height: 8),
+                Text(
+                  '프로필 불러오기 실패',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _error!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(onPressed: _load, child: const Text('다시 시도'))
+              ],
+            ),
           ),
         ),
       );
@@ -242,6 +273,24 @@ class _SettingScreenState extends State<SettingScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      // [추가됨] 상단 앱바 (뒤로가기 버튼 포함)
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          '환경 설정',
+          style: TextStyle(
+              color: Colors.black,
+              fontSize: 18,
+              fontWeight: FontWeight.bold
+          ),
+        ),
+        centerTitle: true,
+      ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
@@ -334,7 +383,7 @@ class _SettingScreenState extends State<SettingScreen> {
             const _BlockSpacer(),
 
             // ===== 이용자 보호 =====
-            _SectionHeader('이용자 보호', left: 22, fontSize: 18),
+            const _SectionHeader('이용자 보호', left: 22, fontSize: 18),
             _Section(
               child: Column(
                 children: [
@@ -354,7 +403,7 @@ class _SettingScreenState extends State<SettingScreen> {
             const _BlockSpacer(),
 
             // ===== 이용 안내 =====
-            _SectionHeader('이용 안내', left: 22, fontSize: 18),
+            const _SectionHeader('이용 안내', left: 22, fontSize: 18),
             _Section(
               child: Column(
                 children: [
