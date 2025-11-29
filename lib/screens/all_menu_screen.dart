@@ -1,3 +1,4 @@
+import 'package:fithouse/screens/walk_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/colors.dart';
@@ -5,7 +6,6 @@ import '../constants/colors.dart';
 // Providers
 import '../providers/bottom_nav_provider.dart'; // [필수]
 import '../providers/video_provider.dart';
-import '../providers/chat_provider.dart';
 import '../providers/ranking_provider.dart';
 
 // Screens (탭 이동이 아닌 실제 이동이 필요한 페이지들)
@@ -99,22 +99,22 @@ class AllMenuScreen extends StatelessWidget {
                     {
                       'icon': Icons.chat_bubble_outline,
                       'label': '커뮤니티',
-                      'type': 'community', // 커뮤니티 내부 탭 이동
-                      'tabIndex': 0,       // 게시판
+                      'type': 'tab', // 메인 탭 이동
+                      'index': 4,    // 커뮤니티 탭 (이제 게시판만 나옴)
                       'color': Colors.brown
                     },
                     {
                       'icon': Icons.map_outlined,
                       'label': '산책로 추천',
-                      'type': 'community', // 커뮤니티 내부 탭 이동
-                      'tabIndex': 1,       // 지도
+                      'type': 'page', // [변경] 새 페이지로 이동
+                      'page': const WalkScreen(), // [변경] WalkScreen 연결
                       'color': Colors.green
                     },
                     {
                       'icon': Icons.chat,
                       'label': 'AI 챗봇',
-                      'type': 'tab', // 탭 이동
-                      'index': 0,    // 챗봇 탭
+                      'type': 'tab',
+                      'index': 0,
                       'color': Colors.indigo
                     },
                   ],
