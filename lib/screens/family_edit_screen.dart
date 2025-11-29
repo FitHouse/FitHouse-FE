@@ -23,6 +23,9 @@ class _FamilyEditScreenState extends State<FamilyEditScreen> {
   bool _loading = true;
   bool _saving = false;
 
+  // [수정] 앱바 및 포인트 컬러 정의 (파스텔 녹색)
+  static const _mainColor = Color(0xFFA9C18D);
+
   @override
   void initState() {
     super.initState();
@@ -95,6 +98,7 @@ class _FamilyEditScreenState extends State<FamilyEditScreen> {
       }
 
       if (res.statusCode == 200) {
+        if (!mounted) return;
         Navigator.pop(context);
       } else {
         print("상태코드: ${res.statusCode}");
@@ -129,9 +133,19 @@ class _FamilyEditScreenState extends State<FamilyEditScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("가족 정보 수정"),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        // [수정] 앱바 스타일 적용
+        backgroundColor: _mainColor,
+        elevation: 0,
+        centerTitle: true,
+        leading: const BackButton(color: Colors.white),
+        title: const Text(
+          "가족 정보 수정",
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
@@ -142,7 +156,7 @@ class _FamilyEditScreenState extends State<FamilyEditScreen> {
                 onTap: _pickImage,
                 child: Stack(
                   children: [
-                    // 프로필 이미지 (기본 이미지 + 테두리)
+                    // 프로필 이미지
                     CircleAvatar(
                       radius: 45,
                       backgroundColor: Colors.white,
@@ -159,12 +173,12 @@ class _FamilyEditScreenState extends State<FamilyEditScreen> {
                         clipBehavior: Clip.hardEdge,
                         child: imageProvider != null
                             ? Image(
-                          image: imageProvider!,
+                          image: imageProvider,
                           fit: BoxFit.cover,
                         )
                             : const Icon(
                           Icons.group,
-                          color: Colors.green,
+                          color: _mainColor, // 아이콘 색상도 통일
                           size: 42,
                         ),
                       ),
@@ -177,7 +191,7 @@ class _FamilyEditScreenState extends State<FamilyEditScreen> {
                         width: 28,
                         height: 28,
                         decoration: BoxDecoration(
-                          color: Colors.green,
+                          color: _mainColor, // 편집 버튼 색상 통일
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
                         ),
@@ -208,7 +222,7 @@ class _FamilyEditScreenState extends State<FamilyEditScreen> {
                   "$currentLength/$maxLength",
                   style: TextStyle(
                     fontSize: 12,
-                    color: isFocused ? Colors.green : Colors.grey,
+                    color: isFocused ? _mainColor : Colors.grey,
                   ),
                 );
               },
@@ -216,9 +230,9 @@ class _FamilyEditScreenState extends State<FamilyEditScreen> {
                 labelText: "가족 이름",
                 border: OutlineInputBorder(),
                 focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.green, width: 2),
+                  borderSide: BorderSide(color: _mainColor, width: 2),
                 ),
-                floatingLabelStyle: TextStyle(color: Colors.green),
+                floatingLabelStyle: TextStyle(color: _mainColor),
               ),
             ),
             const SizedBox(height: 18),
@@ -237,7 +251,7 @@ class _FamilyEditScreenState extends State<FamilyEditScreen> {
                   "$currentLength/$maxLength",
                   style: TextStyle(
                     fontSize: 12,
-                    color: isFocused ? Colors.green : Colors.grey,
+                    color: isFocused ? _mainColor : Colors.grey,
                   ),
                 );
               },
@@ -245,9 +259,9 @@ class _FamilyEditScreenState extends State<FamilyEditScreen> {
                 labelText: "가족 소개",
                 border: OutlineInputBorder(),
                 focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.green, width: 2),
+                  borderSide: BorderSide(color: _mainColor, width: 2),
                 ),
-                floatingLabelStyle: TextStyle(color: Colors.green),
+                floatingLabelStyle: TextStyle(color: _mainColor),
               ),
             ),
 
@@ -258,7 +272,7 @@ class _FamilyEditScreenState extends State<FamilyEditScreen> {
               child: FilledButton(
                 onPressed: _saving ? null : _save,
                 style: FilledButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: _mainColor, // 버튼 색상 통일
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -268,7 +282,7 @@ class _FamilyEditScreenState extends State<FamilyEditScreen> {
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text(
                   "저장하기",
-                  style: TextStyle(fontSize: 16),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
