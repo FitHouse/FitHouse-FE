@@ -83,6 +83,10 @@ class FitHouseApp extends StatelessWidget {
       theme: ThemeData(
         scaffoldBackgroundColor: Colors.white,
         primaryColor: mainGreen,
+
+        // [설정] 앱 전체 기본 폰트는 '나눔고딕'
+        fontFamily: 'NanumGothic',
+
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFFC7EF98),
           foregroundColor: black,
@@ -96,7 +100,6 @@ class FitHouseApp extends StatelessWidget {
           showUnselectedLabels: true,
           type: BottomNavigationBarType.fixed,
         ),
-        fontFamily: 'PyeojinGothic',
         useMaterial3: false,
       ),
       home: const AuthGate(),
@@ -152,12 +155,12 @@ class _MainScreenState extends State<MainScreen> {
 
   // [핵심] 탭 인덱스에 따라 앱바 제목 위젯을 반환하는 함수
   Widget _getAppBarTitle(int index) {
-    // 요청하신 공통 텍스트 스타일 (흰색, 굵게, 20px)
+    // 1. 공통 스타일 (나눔고딕, 흰색, 굵게)
     const textStyle = TextStyle(
       color: Colors.white,
       fontWeight: FontWeight.bold,
       fontSize: 20,
-      fontFamily: 'PyeojinGothic',
+      fontFamily: 'NanumGothic',
     );
 
     // 2번(홈)이 아니면 각 화면에 맞는 한글 텍스트 리턴
@@ -183,9 +186,15 @@ class _MainScreenState extends State<MainScreen> {
           },
         ),
         const SizedBox(width: 8),
+        // [수정] 영어 로고도 표진고딕 없이 기본 폰트(나눔고딕)의 Bold 사용
         const Text(
           'FitHouse',
-          style: textStyle, // 위에서 정의한 스타일 재사용
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 22, // 영어는 살짝 크게
+            fontFamily: 'NanumGothic',
+          ),
         ),
       ],
     );
