@@ -35,7 +35,6 @@ class _SettingScreenState extends State<SettingScreen> {
   String? _error;
   bool _deleting = false;
 
-  // 앱 버전
   String _appVersion = '-';
   String _buildNumber = '-';
 
@@ -59,7 +58,6 @@ class _SettingScreenState extends State<SettingScreen> {
         _buildNumber = info.buildNumber;
       });
     } catch (_) {
-      // 실패시 기본값 유지
     }
   }
 
@@ -82,7 +80,6 @@ class _SettingScreenState extends State<SettingScreen> {
   }
 
   Future<void> _signOut() async {
-    // 1) 포그라운드 서비스 종료
     try {
       await StepCounterScreenState.platform.invokeMethod("stopStepService");
     } catch (_) {}
@@ -92,7 +89,6 @@ class _SettingScreenState extends State<SettingScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('로그아웃 되었습니다.')),
     );
-    // 로그아웃 후 화면 닫기 (로그인 화면으로 돌아가게 됨 - AuthGate 덕분)
     Navigator.pop(context);
   }
 
@@ -203,13 +199,21 @@ class _SettingScreenState extends State<SettingScreen> {
       return Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: const Color(0xFFA9C18D),
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () => Navigator.pop(context),
           ),
-          title: const Text('환경 설정', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18)),
+          title: const Text(
+            '환경 설정',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+              fontFamily: 'PyeojinGothic',
+            ),
+          ),
           centerTitle: true,
         ),
         body: const Center(child: CircularProgressIndicator()),
@@ -221,13 +225,21 @@ class _SettingScreenState extends State<SettingScreen> {
       return Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: const Color(0xFFA9C18D),
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () => Navigator.pop(context),
           ),
-          title: const Text('환경 설정', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18)),
+          title: const Text(
+            '환경 설정',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+              fontFamily: 'PyeojinGothic',
+            ),
+          ),
           centerTitle: true,
         ),
         body: Center(
@@ -273,24 +285,34 @@ class _SettingScreenState extends State<SettingScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      // [추가됨] 상단 앱바 (뒤로가기 버튼 포함)
+
+      // [수정] 메인 화면과 동일한 디자인의 AppBar 적용
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFA9C18D), // 연두색 배경
         elevation: 0,
+        centerTitle: true,
+
+        // 흰색 뒤로가기 버튼
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
+
+        // 흰색 제목 글씨 & 폰트 통일
         title: const Text(
           '환경 설정',
           style: TextStyle(
-              color: Colors.black,
-              fontSize: 18,
-              fontWeight: FontWeight.bold
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            fontFamily: 'PyeojinGothic',
           ),
         ),
-        centerTitle: true,
+
+        // 아이콘 테마 흰색 설정
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
+
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(

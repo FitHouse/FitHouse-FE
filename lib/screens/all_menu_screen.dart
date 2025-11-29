@@ -1,3 +1,5 @@
+import 'package:fithouse/screens/community_screen.dart';
+import 'package:fithouse/screens/walk_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/colors.dart';
@@ -12,7 +14,7 @@ import 'record/record_screen.dart';
 import 'video_list_screen.dart';
 import 'group_screen.dart';
 import 'setting_screen.dart';
-import 'ranking_steps_screen.dart';
+import 'ranking_screen.dart';
 import 'favorite_video_screen.dart';
 import 'walk_screen.dart'; // [필수] 이거 없으면 에러납니다!
 
@@ -40,22 +42,22 @@ class AllMenuScreen extends StatelessWidget {
                     {
                       'icon': Icons.diversity_1,
                       'label': '가족핏',
-                      'type': 'tab',
-                      'index': 1,
+                      'type': 'tab', // 탭 이동
+                      'index': 1,    // 가족운동 탭
                       'color': Colors.indigo
                     },
                     {
                       'icon': Icons.fitness_center,
                       'label': '운동 기록',
-                      'type': 'page',
+                      'type': 'page', // 페이지 이동
                       'page': const RecordScreen(),
                       'color': Colors.orange
                     },
                     {
                       'icon': Icons.directions_walk,
                       'label': '만보기',
-                      'type': 'tab',
-                      'index': 3,
+                      'type': 'tab', // 탭 이동
+                      'index': 3,    // 만보기 탭
                       'color': Colors.blue
                     },
                     {
@@ -99,17 +101,15 @@ class AllMenuScreen extends StatelessWidget {
                     {
                       'icon': Icons.chat_bubble_outline,
                       'label': '커뮤니티',
-                      // [수정] 이제 내부 탭이 없으므로 단순 'tab' 이동으로 변경
-                      'type': 'tab',
-                      'index': 4,    // 커뮤니티 탭 인덱스
+                      'type': 'tab', // 메인 탭 이동
+                      'index': 4,    // 커뮤니티 탭 (이제 게시판만 나옴)
                       'color': Colors.brown
                     },
                     {
                       'icon': Icons.map_outlined,
                       'label': '산책로 추천',
-                      // [수정] 작성하신 대로 page 이동으로 유지 (WalkScreen)
-                      'type': 'page',
-                      'page': const WalkScreen(),
+                      'type': 'page', // [변경] 새 페이지로 이동
+                      'page': const WalkScreen(), // [변경] WalkScreen 연결
                       'color': Colors.green
                     },
                     {
@@ -181,11 +181,15 @@ class AllMenuScreen extends StatelessWidget {
       onTap: () {
         final type = item['type'];
 
-        // 1. 메인 탭 전환 (가족, 만보기, 챗봇, 커뮤니티)
+        // 1. 메인 탭 전환 (가족, 만보기, 챗봇)
         if (type == 'tab') {
           context.read<BottomNavProvider>().changePage(item['index']);
         }
-        // 2. 새 페이지 이동 (설정, 기록, 영상, 산책로 등)
+        // 2. 커뮤니티 내부 탭 전환 (게시판 vs 산책로)
+        else if (type == 'community') {
+          context.read<BottomNavProvider>().goToCommunity(initialTab: item['tabIndex']);
+        }
+        // 3. 새 페이지 이동 (설정, 기록, 영상 등) - 하단바 가려짐 (정상)
         else if (type == 'page' && item['page'] != null) {
           Navigator.push(
             context,

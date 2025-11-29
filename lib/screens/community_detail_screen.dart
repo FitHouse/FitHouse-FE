@@ -46,6 +46,9 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
 
   bool _dirty = false;
 
+  // [수정] 앱바 색상 상수 정의
+  static const _appBarColor = Color(0xFFA9C18D);
+
   @override
   void initState() {
     super.initState();
@@ -191,7 +194,6 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
                     if (!mounted) return;
                     final blockedId = result?['blockedMemberId'] as int?;
                     if (blockedId != null) {
-                      // 상위(CommunityTab)에서 목록 정리하도록 전달
                       Navigator.pop(context, {'blockedMemberId': blockedId});
                     }
                   },
@@ -209,7 +211,6 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
                     if (!mounted) return;
                     final blockedId = result?['blockedMemberId'] as int?;
                     if (blockedId != null) {
-                      // 상위(CommunityTab)에서 목록 정리하도록 전달
                       Navigator.pop(context, {'blockedMemberId': blockedId});
                     }
                   },
@@ -241,8 +242,22 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('게시글'),
+          // [수정] 녹색 배경, 테두리 제거
+          backgroundColor: _appBarColor,
+          elevation: 0,
+          centerTitle: true,
+          // [수정] 타이틀 흰색 텍스트
+          title: const Text(
+            '게시글',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+            ),
+          ),
+          // [수정] 뒤로가기 버튼 흰색
           leading: BackButton(
+            color: Colors.white,
             onPressed: () {
               if (_dirty) {
                 Navigator.pop(context, {
@@ -257,8 +272,9 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
             },
           ),
           actions: [
+            // [수정] 더보기 아이콘 흰색
             IconButton(
-              icon: const Icon(Icons.more_horiz),
+              icon: const Icon(Icons.more_horiz, color: Colors.white),
               onPressed: _onMorePressed,
             ),
           ],
@@ -279,10 +295,13 @@ class _CommunityDetailScreenState extends State<CommunityDetailScreen> {
                     ),
                     const SizedBox(height: 8),
                     if (_imageUrls.isNotEmpty) ...[
-                      _ImagePager(
-                        images: _imageUrls,
-                        controller: _pageController,
-                        onPageChanged: (i) => setState(() => _currentPage = i),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _ImagePager(
+                          images: _imageUrls,
+                          controller: _pageController,
+                          onPageChanged: (i) => setState(() => _currentPage = i),
+                        ),
                       ),
                       const SizedBox(height: 6),
                       _DotsIndicator(

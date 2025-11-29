@@ -21,14 +21,35 @@ class NoticeScreen extends StatelessWidget {
     const dividerColor = Color(0xFFE6E6E9);
 
     return Scaffold(
+      backgroundColor: Colors.white, // 배경색 흰색
+
+      // [수정] 메인 화면과 동일한 디자인의 AppBar 적용
       appBar: AppBar(
+        backgroundColor: const Color(0xFFA9C18D), // 연두색 배경
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        centerTitle: true,
+
+        // 흰색 뒤로가기 버튼
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+
+        // 흰색 제목 글씨 & 폰트 통일
         title: const Text(
           '공지사항',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            fontFamily: 'PyeojinGothic',
+          ),
         ),
+
+        // 아이콘 테마 흰색 설정
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
+
       body: ListView.separated(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
         itemCount: notices.length,
@@ -88,14 +109,32 @@ class NoticeDetailScreen extends StatelessWidget {
     const dividerColor = Color(0xFFE6E6E9);
 
     return Scaffold(
+      backgroundColor: Colors.white,
+
+      // [수정] 상세 화면도 동일한 앱바 디자인 적용
       appBar: AppBar(
+        backgroundColor: const Color(0xFFA9C18D),
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        centerTitle: true,
+
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+
         title: const Text(
           '공지사항',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            fontFamily: 'PyeojinGothic',
+          ),
         ),
+
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
+
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(

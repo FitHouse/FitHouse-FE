@@ -6,29 +6,12 @@ class WalkScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    // 메인 화면(MainScreen)의 Scaffold 안에 들어가므로
+    // 여기서는 별도의 AppBar 없이 내용만 반환하거나
+    // 배경색 지정을 위해 Scaffold(body: ...)만 남겨둡니다.
+    return const Scaffold(
       backgroundColor: Colors.white,
-      // 뒤로가기 버튼이 필요하므로 AppBar 추가
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          '산책로 추천',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: const SafeArea(
-        child: WalkTab(), // 기존 WalkTab 내용을 표시
-      ),
+      body: WalkTab(),
     );
   }
 }
