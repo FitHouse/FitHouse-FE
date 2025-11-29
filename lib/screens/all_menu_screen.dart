@@ -5,18 +5,17 @@ import 'package:provider/provider.dart';
 import '../constants/colors.dart';
 
 // Providers
-import '../providers/bottom_nav_provider.dart';
+import '../providers/bottom_nav_provider.dart'; // [필수]
 import '../providers/video_provider.dart';
 import '../providers/ranking_provider.dart';
 
-// Screens
+// Screens (탭 이동이 아닌 실제 이동이 필요한 페이지들)
 import 'record/record_screen.dart';
 import 'video_list_screen.dart';
 import 'group_screen.dart';
 import 'setting_screen.dart';
 import 'ranking_screen.dart';
 import 'favorite_video_screen.dart';
-import 'walk_screen.dart'; // [필수] 이거 없으면 에러납니다!
 
 class AllMenuScreen extends StatelessWidget {
   const AllMenuScreen({super.key});
@@ -41,7 +40,7 @@ class AllMenuScreen extends StatelessWidget {
                   items: [
                     {
                       'icon': Icons.diversity_1,
-                      'label': '가족핏',
+                      'label': '가족 운동',
                       'type': 'tab', // 탭 이동
                       'index': 1,    // 가족운동 탭
                       'color': Colors.indigo
@@ -62,11 +61,11 @@ class AllMenuScreen extends StatelessWidget {
                     },
                     {
                       'icon': Icons.emoji_events_rounded,
-                      'label': '랭킹',
+                      'label': '만보기 랭킹',
                       'type': 'page',
                       'page': ChangeNotifierProvider.value(
                         value: context.read<RankingProvider>(),
-                        child: const RankingStepsScreen(initialIndex: 1),
+                        child: const RankingScreen(),
                       ),
                       'color': Colors.amber
                     },
@@ -101,20 +100,20 @@ class AllMenuScreen extends StatelessWidget {
                     {
                       'icon': Icons.chat_bubble_outline,
                       'label': '커뮤니티',
-                      'type': 'tab', // 메인 탭 이동
-                      'index': 4,    // 커뮤니티 탭 (이제 게시판만 나옴)
+                      'type': 'page', // 메인 탭 이동
+                      'page': const CommunityScreen(),
                       'color': Colors.brown
                     },
                     {
                       'icon': Icons.map_outlined,
                       'label': '산책로 추천',
-                      'type': 'page', // [변경] 새 페이지로 이동
-                      'page': const WalkScreen(), // [변경] WalkScreen 연결
+                      'type': 'tab', // [변경] 새 페이지로 이동
+                      'index':4,
                       'color': Colors.green
                     },
                     {
                       'icon': Icons.chat,
-                      'label': 'AI 챗봇',
+                      'label': '건강 AI',
                       'type': 'tab',
                       'index': 0,
                       'color': Colors.indigo
