@@ -39,7 +39,7 @@ class AllMenuScreen extends StatelessWidget {
                   items: [
                     {
                       'icon': Icons.diversity_1,
-                      'label': '가족핏',
+                      'label': '가족 운동',
                       'type': 'tab', // 탭 이동
                       'index': 1,    // 가족운동 탭
                       'color': Colors.indigo
@@ -60,7 +60,7 @@ class AllMenuScreen extends StatelessWidget {
                     },
                     {
                       'icon': Icons.emoji_events_rounded,
-                      'label': '랭킹',
+                      'label': '만보기 랭킹',
                       'type': 'page',
                       'page': ChangeNotifierProvider.value(
                         value: context.read<RankingProvider>(),
@@ -112,7 +112,7 @@ class AllMenuScreen extends StatelessWidget {
                     },
                     {
                       'icon': Icons.chat,
-                      'label': 'AI 챗봇',
+                      'label': '건강 AI',
                       'type': 'tab',
                       'index': 0,
                       'color': Colors.indigo
