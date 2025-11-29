@@ -139,13 +139,35 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
     const fieldBg = Color(0xFFF5F6F8);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('회원 탈퇴'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0.5,
-      ),
       backgroundColor: Colors.white,
+
+      // [수정] 메인 화면과 동일한 디자인의 AppBar 적용
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFA9C18D), // 연두색 배경
+        elevation: 0,
+        centerTitle: true,
+
+        // 흰색 뒤로가기 버튼
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+
+        // 흰색 제목 글씨 & 폰트 통일
+        title: const Text(
+          '회원 탈퇴',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            fontFamily: 'PyeojinGothic',
+          ),
+        ),
+
+        // 아이콘 테마 흰색 설정
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 32, 16, 20),
         children: [

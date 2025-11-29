@@ -13,7 +13,7 @@ import 'record/record_screen.dart';
 import 'video_list_screen.dart';
 import 'group_screen.dart';
 import 'setting_screen.dart';
-import 'ranking_steps_screen.dart';
+import 'ranking_screen.dart';
 import 'favorite_video_screen.dart';
 
 class AllMenuScreen extends StatelessWidget {
@@ -64,7 +64,7 @@ class AllMenuScreen extends StatelessWidget {
                       'type': 'page',
                       'page': ChangeNotifierProvider.value(
                         value: context.read<RankingProvider>(),
-                        child: const RankingStepsScreen(initialIndex: 1),
+                        child: const RankingScreen(),
                       ),
                       'color': Colors.amber
                     },
