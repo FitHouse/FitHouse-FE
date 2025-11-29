@@ -146,7 +146,7 @@ class FamilyProgressCard extends StatelessWidget {
                         child: Text(
                           isSuccess
                               ? "🎉 목표 달성!\n너무 잘했어요!"
-                              : "🌧️ 목표 달성 실패..\n우리 가족 더 힘내볼까요?",
+                              : "🌧️ 목표 달성 실패..\n우리 더 힘내볼까요?",
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 17,
