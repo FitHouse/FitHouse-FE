@@ -79,6 +79,10 @@ flutter:
     - family: NanumGothic
       fonts:
         - asset: assets/fonts/NanumGothic.ttf
+        - asset: assets/fonts/NanumGothicExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/PyeojinGothic-Medium.ttf
+          weight: 500
         - asset: assets/fonts/NanumGothicLight.ttf
           weight: 300
         - asset: assets/fonts/NanumGothicBold.ttf
