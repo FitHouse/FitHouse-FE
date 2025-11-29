@@ -42,13 +42,8 @@ class _CommunityComposeScreenState extends State<CommunityComposeScreen> {
 
   // 공통 스타일
   static const _fieldBg = Color(0xFFF5F6F8);
-  final _primaryBtn = ElevatedButton.styleFrom(
-    backgroundColor: buttonGreen,
-    foregroundColor: Colors.white,
-    elevation: 0,
-    minimumSize: const Size(48, 44),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-  );
+  // 앱바 색상 (RecordScreen과 동일)
+  static const _appBarColor = Color(0xFFA9C18D);
 
   @override
   void initState() {
@@ -188,39 +183,52 @@ class _CommunityComposeScreenState extends State<CommunityComposeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        foregroundColor: Colors.black,
-        title: Text(isEdit ? '게시글 수정' : '게시글 작성'),
-        leading: const BackButton(),
-          actions: [
-            TextButton(
-              onPressed: _submitting ? null : _submit,
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.black,
-                overlayColor: buttonGreen.withOpacity(0.08),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                shape: const StadiumBorder(),
-              ),
-              child: _submitting
-                  ? const SizedBox(
-                width: 18, height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation(Colors.green),
-                ),
-              )
-                  : const Text(
-                '등록',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-              ),
+        // [수정] RecordScreen과 동일한 배경색 적용
+        backgroundColor: _appBarColor,
+        elevation: 0,
+        centerTitle: true,
+        // [수정] 뒤로가기 버튼 흰색
+        leading: const BackButton(color: Colors.white),
+        // [수정] 타이틀 흰색 및 굵게
+        title: Text(
+          isEdit ? '게시글 수정' : '게시글 작성',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _submitting ? null : _submit,
+            style: TextButton.styleFrom(
+              // [수정] 버튼 글씨 흰색
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              shape: const StadiumBorder(),
             ),
-            const SizedBox(width: 4),
-          ]
+            child: _submitting
+                ? const SizedBox(
+              width: 18, height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                // [수정] 로딩바 흰색
+                valueColor: AlwaysStoppedAnimation(Colors.white),
+              ),
+            )
+                : const Text(
+              '등록',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
 
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
           children: [
             // 이미지 영역
             _ImagePickerCard(
@@ -231,7 +239,7 @@ class _CommunityComposeScreenState extends State<CommunityComposeScreen> {
             ),
             const SizedBox(height: 20),
 
-            // 내용 입력 (고객센터 문의 본문 스타일)
+            // 내용 입력
             TextFormField(
               controller: _contentCtrl,
               minLines: 5,
@@ -241,7 +249,7 @@ class _CommunityComposeScreenState extends State<CommunityComposeScreen> {
                 hintStyle: TextStyle(color: grey),
                 filled: true,
                 fillColor: _fieldBg,
-                contentPadding: EdgeInsets.all(12),
+                contentPadding: EdgeInsets.all(16),
                 border: OutlineInputBorder(
                   borderSide: BorderSide.none,
                   borderRadius: BorderRadius.all(Radius.circular(12)),
