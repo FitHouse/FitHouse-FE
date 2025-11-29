@@ -247,7 +247,7 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
           backgroundColor: const Color(0xFFA9C18D),
           // [수정] 테두리 제거하고 그냥 흰색 글씨만 적용
           title: const Text(
-            '개인운동 기록',
+            '개인 운동 기록',
             style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,

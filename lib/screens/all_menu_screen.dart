@@ -1,3 +1,4 @@
+import 'package:fithouse/screens/community_screen.dart';
 import 'package:fithouse/screens/walk_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -99,15 +100,15 @@ class AllMenuScreen extends StatelessWidget {
                     {
                       'icon': Icons.chat_bubble_outline,
                       'label': '커뮤니티',
-                      'type': 'tab', // 메인 탭 이동
-                      'index': 4,    // 커뮤니티 탭 (이제 게시판만 나옴)
+                      'type': 'page', // 메인 탭 이동
+                      'page': const CommunityScreen(),
                       'color': Colors.brown
                     },
                     {
                       'icon': Icons.map_outlined,
                       'label': '산책로 추천',
-                      'type': 'page', // [변경] 새 페이지로 이동
-                      'page': const WalkScreen(), // [변경] WalkScreen 연결
+                      'type': 'tab', // [변경] 새 페이지로 이동
+                      'index':4,
                       'color': Colors.green
                     },
                     {
