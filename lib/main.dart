@@ -8,10 +8,13 @@ import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+// [필수 수정 1] 이 import 문을 꼭 추가해야 합니다.
+import 'package:intl/date_symbol_data_local.dart';
+
 // Providers
 import 'providers/chat_provider.dart';
 import 'providers/video_provider.dart';
-import 'providers/bottom_nav_provider.dart'; // [필수] 방금 만든 파일 import
+import 'providers/bottom_nav_provider.dart';
 
 // Screens
 import 'screens/auth/login_screen.dart';
@@ -37,6 +40,10 @@ Future<void> requestNotificationPermission() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // [필수 수정 2] 앱 실행 전에 날짜 포맷 데이터를 초기화해야 오류가 사라집니다.
+  await initializeDateFormatting();
+
   await requestNotificationPermission();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
@@ -44,7 +51,6 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => VideoProvider()),
-        // 앱 전체에서 탭 상태를 공유하기 위해 여기에 등록
         ChangeNotifierProvider(create: (_) => BottomNavProvider()),
       ],
       child: const FitHouseApp(),
@@ -61,6 +67,18 @@ class FitHouseApp extends StatelessWidget {
       title: 'FitHouse',
       debugShowCheckedModeBanner: false,
       navigatorObservers: [routeObserver],
+
+      // [권장 추가 사항] 한국어 지원을 완벽하게 하려면 아래 설정을 추가하는 것이 좋습니다.
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ko', 'KR'), // 한국어
+        Locale('en', 'US'), // 영어
+      ],
+
       theme: ThemeData(
         scaffoldBackgroundColor: Colors.white,
         primaryColor: mainGreen,
@@ -84,6 +102,7 @@ class FitHouseApp extends StatelessWidget {
   }
 }
 
+// ... (아래 AuthGate, MainScreen, _MainScreenState 코드는 기존과 동일하게 유지) ...
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
@@ -121,7 +140,6 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  // [탭 순서] 0:챗봇, 1:가족, 2:홈(전체메뉴), 3:만보기, 4:커뮤니티
   final List<Widget> _pages = [
     const ChatbotScreen(),
     const ProfileScreen(),
@@ -132,7 +150,6 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Provider를 통해 현재 탭 번호를 가져옵니다.
     final navProvider = Provider.of<BottomNavProvider>(context);
     final currentIndex = navProvider.currentIndex;
 
@@ -141,12 +158,10 @@ class _MainScreenState extends State<MainScreen> {
         backgroundColor: const Color(0xFFA9C18D),
         elevation: 0,
         centerTitle: false,
-        // [중요] 홈(2번)이 아닐 때만 '뒤로가기(홈으로)' 버튼 표시
         leading: currentIndex != 2
             ? IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            // 뒤로가기 누르면 홈(2번)으로 이동
             navProvider.changePage(2);
           },
         )
@@ -174,20 +189,14 @@ class _MainScreenState extends State<MainScreen> {
           ],
         ),
       ),
-
-      // IndexedStack: 탭이 바뀌어도 화면 상태를 유지해줍니다.
       body: IndexedStack(
         index: currentIndex,
         children: _pages,
       ),
-
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
         onTap: (index) {
-          // 탭을 누르면 Provider에게 페이지 변경 요청
           navProvider.changePage(index);
-
-          // 만약 만보기(3번)를 눌렀다면 리프레시 로직 실행
           if (index == 3) {
             StepCounterScreenState.instance?.onTabRevisited();
           }
