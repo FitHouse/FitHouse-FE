@@ -3,15 +3,10 @@ import 'package:table_calendar/table_calendar.dart';
 
 import 'package:fithouse/main.dart'; // routeObserver
 import 'package:fithouse/models/personal_workout.dart';
-// mainGreen 상수를 가져옴 (혹은 직접 Colors.green 사용 가능)
-import 'package:fithouse/constants/colors.dart';
+import 'package:fithouse/constants/colors.dart'; // mainGreen, white, black 등
 
-// 같은 폴더에 있는 데이터 관리 파일을 상대 경로로 import
+// 같은 폴더에 있는 데이터 관리 파일
 import 'record_data_manager.dart';
-
-// -----------------------------------------------------------------------------
-// [2] 메인 화면 (RecordScreen)
-// -----------------------------------------------------------------------------
 
 class RecordScreen extends StatefulWidget {
   final int? userId;
@@ -31,7 +26,14 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
   @override
   void initState() {
     super.initState();
-    _dataManager = RecordDataManager(userId: widget.userId, updateState: setState);
+    // [안정성 코드] 화면이 살아있을 때만 setState 실행
+    _dataManager = RecordDataManager(
+        userId: widget.userId,
+        updateState: (fn) {
+          if (mounted) setState(fn);
+        }
+    );
+
     _selectedDay = _focusedDay;
     _dataManager.loadMyInfo();
     _dataManager.loadInitial();
@@ -55,24 +57,22 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
     _dataManager.loadInitial();
   }
 
-  // API 호출 후 결과에 따라 UI/데이터 업데이트
+  // API 호출 및 UI 로직
   Future<void> _onCreate() async {
     if (widget.userId != null) return;
 
-    // [수정] 선택된 날짜가 있으면 그 날짜를, 없으면 오늘 날짜를 기본값으로 설정
     final initDate = _selectedDay ?? DateTime.now();
 
     final result = await showModalBottomSheet<EditResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      // [수정] EditSheet에 선택된 날짜(initDate)를 초기값으로 전달
       builder: (_) => EditSheet(
           initial: EditResult(
             date: initDate,
-            workoutName: '', // 기본값 빈 문자열
-            duration: 60,    // 기본 운동 시간 60분
-            satisfactionLevel: 3, // 기본 만족도 보통
+            workoutName: '',
+            duration: 60,
+            satisfactionLevel: 3,
             memo: '',
           )
       ),
@@ -84,11 +84,13 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
         date: result.date, workoutName: result.workoutName, duration: result.duration,
         satisfactionLevel: result.satisfactionLevel, memo: result.memo,
       );
-      setState(() {
-        _selectedDay = created.date;
-        _focusedDay = created.date;
-      });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('기록되었습니다.')));
+      if (mounted) {
+        setState(() {
+          _selectedDay = created.date;
+          _focusedDay = created.date;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('기록되었습니다.')));
+      }
     } catch (e) { _showError(e.toString()); }
   }
 
@@ -140,7 +142,6 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
 
   Widget _buildHeader() {
     final data = _dataManager.data;
-    // 테마에서 primaryColor를 가져와 사용합니다.
     final Color headerIconColor = Theme.of(context).primaryColor;
 
     if (data.myInfoLoading) return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()));
@@ -157,7 +158,6 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))],
       ),
       child: Column(children: [
-        // 상단 전체를 클릭 가능하게 감싸서 터치 영역을 넓혀줍니다.
         InkWell(
           onTap: () => setState(() => _detailsOpen = !_detailsOpen),
           borderRadius: BorderRadius.only(
@@ -181,7 +181,6 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
                       ]
                   )
               ),
-              // 상세 정보가 있다는 것을 명확히 하기 위해 아이콘과 '더보기' 텍스트 추가
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -191,10 +190,7 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
                     size: 24,
                   ),
                   if (!_detailsOpen)
-                    const Text(
-                      "더보기",
-                      style: TextStyle(fontSize: 10, color: Colors.grey),
-                    ),
+                    const Text("더보기", style: TextStyle(fontSize: 10, color: Colors.grey)),
                 ],
               ),
             ]),
@@ -249,14 +245,25 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
 
         appBar: AppBar(
           backgroundColor: const Color(0xFFA9C18D),
-          title: const Text('개인운동 기록', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          // [수정] 테두리 제거하고 그냥 흰색 글씨만 적용
+          title: const Text(
+            '개인운동 기록',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+            ),
+          ),
           elevation: 0,
           centerTitle: true,
-          leading: BackButton(color: Colors.black, onPressed: () => Navigator.pop(context, data.dirty)),
-          iconTheme: const IconThemeData(color: Colors.black),
+          // [수정] 뒤로가기 버튼 흰색
+          leading: BackButton(
+              color: Colors.white,
+              onPressed: () => Navigator.pop(context, data.dirty)
+          ),
+          iconTheme: const IconThemeData(color: Colors.white),
         ),
 
-        // 플로팅 액션 버튼: Theme.of(context).primaryColor 사용
         floatingActionButton: widget.userId == null ? FloatingActionButton(onPressed: _onCreate, backgroundColor: primaryColor, elevation: 4, child: const Icon(Icons.add, color: Colors.black)) : null,
 
         body: RefreshIndicator(
@@ -273,10 +280,8 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
                   locale: 'ko_KR', firstDay: DateTime.utc(2023, 1, 1), lastDay: DateTime.utc(2030, 12, 31), focusedDay: _focusedDay,
                   selectedDayPredicate: (day) => isSameDay(_selectedDay, day), eventLoader: data.getEventsForDay,
 
-                  // [수정] 요일 행 높이 설정 (월화수목금 짤림 방지)
                   daysOfWeekHeight: 30.0,
 
-                  // 헤더 스타일: primaryColor 사용
                   headerStyle: HeaderStyle(
                     titleCentered: true, formatButtonVisible: false,
                     titleTextStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
@@ -284,87 +289,46 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
                     rightChevronIcon: Icon(Icons.chevron_right, color: primaryColor),
                   ),
 
-                  // 캘린더 날짜 및 배경색 스타일
                   calendarStyle: CalendarStyle(
                     outsideDaysVisible: false,
                     defaultTextStyle: const TextStyle(color: Colors.black87, fontSize: 15),
                     weekendTextStyle: const TextStyle(color: Colors.red, fontSize: 15),
-
-                    // [잔디심기 1] 마커(점) 대신 배경색을 쓸 것이므로 마커 제거
                     markersMaxCount: 0,
-
-                    // 오늘 날짜 스타일 (운동 기록이 없을 때)
-                    todayDecoration: BoxDecoration(
-                      color: primaryColor.withOpacity(0.3),
-                      shape: BoxShape.circle,
-                    ),
+                    todayDecoration: BoxDecoration(color: primaryColor.withOpacity(0.3), shape: BoxShape.circle),
                     todayTextStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 15),
-
-                    // 선택된 날짜 스타일 (운동 기록이 없을 때)
-                    selectedDecoration: const BoxDecoration(
-                      color: Colors.transparent,
-                      shape: BoxShape.circle,
-                    ),
-                    selectedTextStyle: const TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15
-                    ),
+                    selectedDecoration: const BoxDecoration(color: Colors.transparent, shape: BoxShape.circle),
+                    selectedTextStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 15),
                   ),
 
-                  //  [잔디심기 2] calendarBuilders를 사용하여 잔디(배경색) 효과 구현
                   calendarBuilders: CalendarBuilders(
-
-                    // 1. 일반 날짜 + 운동 기록 있음 (잔디 심기)
                     defaultBuilder: (context, day, focusedDay) {
                       final events = data.getEventsForDay(day);
                       if (events.isNotEmpty) {
-                        // 기록 개수에 따라 색상 농도 조절 (최대 4단계)
                         final int intensity = events.length.clamp(1, 4);
                         final Color grassColor = Colors.green.withOpacity(0.2 + (intensity * 0.15));
-
                         return Container(
                           margin: const EdgeInsets.all(6.0),
                           alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: grassColor,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Text(
-                            '${day.day}',
-                            style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
-                          ),
+                          decoration: BoxDecoration(color: grassColor, shape: BoxShape.circle),
+                          child: Text('${day.day}', style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
                         );
                       }
-                      return null; // 기록 없으면 기본 스타일 사용
+                      return null;
                     },
-
-                    // 2. 오늘 날짜 + 운동 기록 있음
                     todayBuilder: (context, day, focusedDay) {
                       final events = data.getEventsForDay(day);
                       if (events.isNotEmpty) {
                         return Container(
                           margin: const EdgeInsets.all(6.0),
                           alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.6), // 오늘은 좀 더 진한 잔디
-                            shape: BoxShape.circle,
-                            border: Border.all(color: primaryColor, width: 2.0), // 오늘 표시 테두리
-                          ),
-                          child: Text(
-                            '${day.day}',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                          ),
+                          decoration: BoxDecoration(color: Colors.green.withOpacity(0.6), shape: BoxShape.circle, border: Border.all(color: primaryColor, width: 2.0)),
+                          child: Text('${day.day}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         );
                       }
-                      return null; // 기존 todayDecoration 따름
+                      return null;
                     },
-
-                    // 3. 선택된 날짜 스타일 커스텀
                     selectedBuilder: (context, day, focusedDay) {
                       final events = data.getEventsForDay(day);
-                      // 선택된 날짜에 운동이 있다면 -> 진한 녹색 배경 + 검은 테두리
-                      // 운동이 없다면 -> 투명 배경 + 검은 테두리
                       return Container(
                         margin: const EdgeInsets.all(6.0),
                         alignment: Alignment.center,
@@ -373,13 +337,7 @@ class _RecordScreenState extends State<RecordScreen> with RouteAware {
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.black, width: 2.0),
                         ),
-                        child: Text(
-                          '${day.day}',
-                          style: TextStyle(
-                              color: events.isNotEmpty ? Colors.white : Colors.black,
-                              fontWeight: FontWeight.bold
-                          ),
-                        ),
+                        child: Text('${day.day}', style: TextStyle(color: events.isNotEmpty ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
                       );
                     },
                   ),
