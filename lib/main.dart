@@ -21,7 +21,7 @@ import 'providers/bottom_nav_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/chatbot_screen.dart';
 import 'screens/profile_screen.dart';
-import 'screens/ranking_steps_screen.dart';
+import 'screens/ranking_screen.dart';
 import 'screens/step_counter_screen.dart';
 import 'screens/community_screen.dart';
 import 'screens/all_menu_screen.dart';
@@ -164,7 +164,7 @@ class _MainScreenState extends State<MainScreen> {
     if (index != 2) {
       switch (index) {
         case 0: return const Text('건강 AI', style: textStyle);
-        case 1: return const Text('가족운동', style: textStyle);
+        case 1: return const Text('가족 운동 기록', style: textStyle);
         case 3: return const Text('만보기', style: textStyle);
         case 4: return const Text('산책로', style: textStyle);
         default: return const Text('FitHouse', style: textStyle);

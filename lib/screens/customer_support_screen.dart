@@ -13,25 +13,43 @@ class CustomerSupportScreen extends StatelessWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: white,
+        backgroundColor: Colors.white,
+
+        // [수정] 메인 화면과 동일한 디자인의 AppBar 적용
         appBar: AppBar(
+          backgroundColor: const Color(0xFFA9C18D), // 연두색 배경
           elevation: 0,
-          iconTheme: const IconThemeData(color: Colors.black),
+          centerTitle: true,
+
+          // 흰색 뒤로가기 버튼
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+
+          // 흰색 제목 글씨 & 폰트 통일
           title: const Text(
             '고객센터',
             style: TextStyle(
-              color: Colors.black,
+              color: Colors.white,
               fontWeight: FontWeight.w600,
+              fontSize: 20,
+              fontFamily: 'PyeojinGothic', // 메인과 동일한 폰트
             ),
           ),
+
+          // 아이콘 테마 흰색 설정
+          iconTheme: const IconThemeData(color: Colors.white),
+
+          // 탭바 디자인 (기존 흰색 배경 유지)
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(48),
             child: Container(
-              color: Colors.white, // ← TabBar 부분만 흰색
+              color: Colors.white, // 탭바 영역은 흰색으로
               child: const TabBar(
-                labelColor: Color(0xFF32CB56),
-                unselectedLabelColor: grey,
-                indicatorColor: Color(0xFF32CB56),
+                labelColor: Color(0xFF32CB56), // 선택된 탭 글씨색 (초록)
+                unselectedLabelColor: grey,    // 선택 안된 탭 글씨색 (회색)
+                indicatorColor: Color(0xFF32CB56), // 하단 인디케이터 색상 (초록)
                 tabs: [
                   Tab(text: '도움말'),
                   Tab(text: '문의하기'),
@@ -40,6 +58,7 @@ class CustomerSupportScreen extends StatelessWidget {
             ),
           ),
         ),
+
         body: const TabBarView(
           children: [
             FaqTab(),

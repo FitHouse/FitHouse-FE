@@ -228,15 +228,48 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('내 정보 변경'),
+        // [수정] 메인과 동일한 연두색 배경
+        backgroundColor: const Color(0xFFA9C18D),
+        elevation: 0,
+        centerTitle: true,
+
+        // [수정] 흰색 뒤로가기 버튼
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+
+        // [수정] 흰색 제목 글씨 & 폰트 통일
+        title: const Text(
+          '내 정보 변경',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            fontFamily: 'PyeojinGothic',
+          ),
+        ),
+
         actions: [
           TextButton(
             onPressed: _saving ? null : _saveAndPop,
-            style: TextButton.styleFrom(foregroundColor: buttonGreen),
+            // [수정] 저장 버튼 색상을 흰색으로 변경
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                fontFamily: 'PyeojinGothic', // 폰트 통일
+              ),
+            ),
             child: const Text('저장'),
           ),
         ],
+
+        // 아이콘 테마 흰색 설정
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
+
       body: ListView(
         padding: const EdgeInsets.only(top: 50, bottom: 12),
         children: [
@@ -538,6 +571,7 @@ class _SettingEditProfileScreenState extends State<SettingEditProfileScreen> {
   }
 }
 
+// ... (아래 _Section, _BlockSpacer, _InfoRow, _FieldLabel, _SheetHandle 등은 기존과 동일)
 class _Section extends StatelessWidget {
   final Widget child;
   const _Section({required this.child});

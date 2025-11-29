@@ -5,10 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:share_plus/share_plus.dart'; // 공유 기능 패키지
+import 'package:share_plus/share_plus.dart';
 
 import 'package:fithouse/api/http_client.dart';
-import 'package:fithouse/screens/record/record_screen.dart';
 import '../constants/colors.dart';
 
 class GroupScreen extends StatefulWidget {
@@ -37,7 +36,6 @@ class _GroupScreenState extends State<GroupScreen> {
   @override
   void initState() {
     super.initState();
-    // 화면이 그려진 직후 데이터 로딩 시작
     WidgetsBinding.instance.addPostFrameCallback((_) => _fetchMine());
   }
 
@@ -49,7 +47,6 @@ class _GroupScreenState extends State<GroupScreen> {
     super.dispose();
   }
 
-  // Firebase 인증 헤더 가져오기
   Future<Map<String, String>> _authHeader() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw Exception('로그인이 필요합니다.');
@@ -59,7 +56,6 @@ class _GroupScreenState extends State<GroupScreen> {
     };
   }
 
-  // 이미지 선택 함수
   Future<void> _pickImage() async {
     final picked = await _picker.pickImage(source: ImageSource.gallery);
 
@@ -69,7 +65,6 @@ class _GroupScreenState extends State<GroupScreen> {
     }
   }
 
-  // 이미지 서버 업로드 함수
   Future<void> _uploadFamilyImage(XFile file) async {
     try {
       final uri = Uri.parse('$baseUrl/family/image');
@@ -94,15 +89,12 @@ class _GroupScreenState extends State<GroupScreen> {
     }
   }
 
-  // 초대코드 공유 함수
   Future<void> _shareInviteCode(String code) async {
     final message = '핏하우스 가족 초대코드: $code\n앱에서 입력하고 가족으로 함께하세요!';
     await Share.share(message, subject: '핏하우스 가족 초대');
   }
 
-  // 내 가족 정보 불러오기
   Future<void> _fetchMine() async {
-    // 이미 로딩 중이 아니라면 로딩 상태로 전환
     if (!_loading) setState(() => _loading = true);
 
     try {
@@ -123,7 +115,6 @@ class _GroupScreenState extends State<GroupScreen> {
     }
   }
 
-  // 가족 생성
   Future<void> _createFamily() async {
     if (_inFamily) {
       _showSnack('이미 가족이 생성되어 있습니다.');
@@ -167,7 +158,6 @@ class _GroupScreenState extends State<GroupScreen> {
     }
   }
 
-  // 가족 가입
   Future<void> _joinFamily() async {
     if (_inFamily) {
       _showSnack('이미 가족에 가입되어 있습니다.');
@@ -202,7 +192,6 @@ class _GroupScreenState extends State<GroupScreen> {
     }
   }
 
-  // 공통 스낵바
   void _showSnack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -210,7 +199,6 @@ class _GroupScreenState extends State<GroupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 로딩 중이면 화면 전체에 로딩 인디케이터 표시 (엉뚱한 화면 노출 방지)
     if (_loading && _mine == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator(color: Colors.green)),
@@ -222,11 +210,35 @@ class _GroupScreenState extends State<GroupScreen> {
     final members = (_mine?['members'] as List?) ?? const [];
 
     return Scaffold(
+      backgroundColor: Colors.white, // 배경색 흰색 설정
+
+      // [수정] 메인 화면과 동일한 디자인의 AppBar 적용
       appBar: AppBar(
-        backgroundColor: const Color(0xFFA9C18D),
-        title: const Text('가족코드'),
+        backgroundColor: const Color(0xFFA9C18D), // 연두색 배경
+        elevation: 0,
         centerTitle: true,
+
+        // 흰색 뒤로가기 버튼
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+
+        // 흰색 제목 글씨 & 폰트 통일
+        title: const Text(
+          '가족 코드',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            fontFamily: 'PyeojinGothic',
+          ),
+        ),
+
+        // 아이콘 테마 흰색 설정
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
+
       body: Stack(
         children: [
           RefreshIndicator(
@@ -459,7 +471,6 @@ class _GroupScreenState extends State<GroupScreen> {
               ],
             ),
           ),
-          // 작업 중일 때 상단 로딩 바 (가족 생성/가입 등 액션 수행 시)
           if (_loading && _mine != null)
             const Align(
               alignment: Alignment.topCenter,
@@ -475,6 +486,7 @@ class _GroupScreenState extends State<GroupScreen> {
   }
 }
 
+// ... (아래 _SectionHeader, _EmptyFamilyView, _FamilyInfoView, _KeyValueRow 등은 기존과 동일)
 class _SectionHeader extends StatelessWidget {
   final String title;
   final Widget? trailing;

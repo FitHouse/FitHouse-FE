@@ -22,22 +22,31 @@ class _FavoriteVideoScreenState extends State<FavoriteVideoScreen> {
   void initState() {
     super.initState();
     _loadFavorites();
-
   }
 
   Future<void> _loadFavorites() async {
     final user = FirebaseAuth.instance.currentUser;
-    final idToken = await user!.getIdToken();
+    if (user == null) return;
 
-    final res = await http.get(
-      Uri.parse('$baseUrl/api/favorite-video/list'),
-      headers: {'Authorization': 'Bearer $idToken'},
-    );
+    try {
+      final idToken = await user.getIdToken();
+      final res = await http.get(
+        Uri.parse('$baseUrl/api/favorite-video/list'),
+        headers: {'Authorization': 'Bearer $idToken'},
+      );
 
-    setState(() {
-      favorites = jsonDecode(res.body);
-      isLoading = false;
-    });
+      if (mounted) {
+        setState(() {
+          favorites = jsonDecode(res.body);
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      print("즐겨찾기 로드 실패: $e");
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
   }
 
   Future<void> _removeFavorite(String rawUrl) async {
@@ -48,7 +57,7 @@ class _FavoriteVideoScreenState extends State<FavoriteVideoScreen> {
       // 1) 서버로 보낼 때만 인코딩
       final encodedUrl = Uri.encodeComponent(rawUrl);
 
-      final res = await httpClient.delete(
+      await httpClient.delete(
         Uri.parse('$baseUrl/api/favorite-video?videoUrl=$encodedUrl'),
         headers: {
           'Authorization': 'Bearer $idToken',
@@ -56,21 +65,25 @@ class _FavoriteVideoScreenState extends State<FavoriteVideoScreen> {
       );
 
       // 2) DB에서도 삭제됨 → 프론트 리스트에서도 제거
-      favorites.removeWhere((item) => item["videoUrl"] == rawUrl);
-      setState(() {});
+      setState(() {
+        favorites.removeWhere((item) => item["videoUrl"] == rawUrl);
+      });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text(
-            "즐겨찾기에서 삭제되었습니다",
-            style: TextStyle(color: Colors.black87, fontSize: 14),
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              "즐겨찾기에서 삭제되었습니다",
+              style: TextStyle(color: Colors.black87, fontSize: 14),
+            ),
+            backgroundColor: Colors.white,
+            elevation: 2,
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          duration: const Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+        );
+      }
     } catch (e) {
       debugPrint("삭제 오류: $e");
     }
@@ -79,40 +92,40 @@ class _FavoriteVideoScreenState extends State<FavoriteVideoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white, // 배경색 흰색 지정
+
+      // [수정] 메인과 동일한 디자인의 AppBar 적용
       appBar: AppBar(
-          backgroundColor: const Color(0xFFA9C18D),
-          title: const Text("즐겨찾기 영상"), centerTitle: true
+        backgroundColor: const Color(0xFFA9C18D), // 메인과 동일한 연두색
+        elevation: 0,
+        centerTitle: true,
+
+        // 흰색 뒤로가기 버튼
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+
+        // 흰색 제목 글씨 & 폰트 통일
+        title: const Text(
+          "영상 즐겨찾기",
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            fontFamily: 'PyeojinGothic',
+          ),
+        ),
+
+        // 아이콘 테마 흰색 설정
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
+
       body: isLoading
           ? const Center(child: CircularProgressIndicator(color: buttonGreen))
           : favorites.isEmpty
           ? _buildEmptyView()
-          : ListView.builder(
-        itemCount: favorites.length,
-        itemBuilder: (_, i) {
-          final v = favorites[i];
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: ListTile(
-              leading: Image.network(v["thumbnailUrl"], width: 90, height: 90),
-              title: Text(v["trngNm"]),
-              subtitle: Text("${v["aggrpNm"]} / ${v["ftnsFctrNm"]}"),
-
-              trailing: IconButton(
-                icon: const Icon(Icons.close, color: Colors.grey, size: 20),
-                onPressed: () => _removeFavorite(v["videoUrl"]),
-              ),
-
-              onTap: () {
-                showDialog(
-                  context: context,
-                  builder: (_) => VideoPlayerDialog(videoUrl: v["videoUrl"]),
-                );
-              },
-            ),
-          );
-        },
-      ),
+          : _buildFavoriteList(),
     );
   }
 
@@ -156,7 +169,6 @@ class _FavoriteVideoScreenState extends State<FavoriteVideoScreen> {
           builder: (_) => VideoPlayerDialog(videoUrl: item["videoUrl"]),
         );
       },
-
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
@@ -180,24 +192,50 @@ class _FavoriteVideoScreenState extends State<FavoriteVideoScreen> {
                 width: 110,
                 height: 85,
                 fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    width: 110,
+                    height: 85,
+                    color: Colors.grey[300],
+                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                  );
+                },
               ),
             ),
 
             const SizedBox(width: 12),
 
-            // 제목
+            // 제목 및 정보
             Expanded(
-              child: Text(
-                item["trngNm"] ?? "",
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item["trngNm"] ?? "",
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "${item["aggrpNm"] ?? '-'} / ${item["ftnsFctrNm"] ?? '-'}",
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
 
+            // 삭제 버튼
             IconButton(
               icon: const Icon(Icons.close, color: Colors.grey),
               onPressed: () => _removeFavorite(item["videoUrl"]),

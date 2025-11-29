@@ -111,9 +111,29 @@ class _VideoListScreenState extends State<VideoListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFFA9C18D),
-        title: const Text("운동 영상 모음"),
+        backgroundColor: const Color(0xFFA9C18D), // 메인과 동일한 연두색
+        elevation: 0,
         centerTitle: true,
+
+        // [수정] 뒤로가기 버튼 흰색
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+
+        // [수정] 제목 흰색 & 폰트 통일
+        title: const Text(
+          "운동 영상 모음",
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            fontFamily: 'PyeojinGothic',
+          ),
+        ),
+
+        // 아이콘 테마 흰색 설정
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Column(
         children: [
