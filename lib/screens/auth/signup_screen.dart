@@ -285,8 +285,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
         );
       }
 
-      await FirebaseAuth.instance.signOut();
-
       if (!mounted) return;
 
       await showDialog(
@@ -343,12 +341,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
           );
         },
       );
-
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/login',
-            (route) => false,
-        arguments: {'prefillEmail': email},
-      );
+      Navigator.of(context).popUntil((route) => route.isFirst);
     } on FirebaseAuthException catch (e) {
       setState(() => _error = _humanizeAuthError(e));
     } catch (e) {

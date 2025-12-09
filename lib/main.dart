@@ -66,6 +66,10 @@ class FitHouseApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'FitHouse',
+      routes: {
+        '/login': (_) => const LoginScreen()
+      },
+
       debugShowCheckedModeBanner: false,
       navigatorObservers: [routeObserver],
 
