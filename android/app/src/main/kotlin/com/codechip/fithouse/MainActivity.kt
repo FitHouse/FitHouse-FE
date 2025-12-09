@@ -65,6 +65,13 @@ class MainActivity : FlutterFragmentActivity() {
                         result.success(true)
                     }
 
+                    "setUserId" -> {
+                        val userId = call.argument<Int>("userId") ?: -1
+                        val prefs = getSharedPreferences("steps", Context.MODE_PRIVATE)
+                        prefs.edit().putInt("user_id", userId).apply()
+                        result.success(true)
+                    }
+
                     "stopStepService" -> {
                         stopStepService()
                         result.success(true)
