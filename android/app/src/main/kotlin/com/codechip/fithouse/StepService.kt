@@ -12,6 +12,12 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import java.time.LocalDate
 import android.content.pm.ServiceInfo
+import kotlinx.coroutines.*
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 
 class StepService : Service(), SensorEventListener {
 
@@ -23,44 +29,41 @@ class StepService : Service(), SensorEventListener {
 
     private lateinit var prefs: android.content.SharedPreferences
 
-    private var baseline = 0         // 오늘 하루 시작 지점
-    private var todaySteps = 0       // 오늘 걸음
+    private var baseline = 0
+    private var todaySteps = 0
     private var lastDate = ""
+
+    private var lastSyncTime = 0L
+    private val syncInterval = 10_000L // 서버 자동 동기화 10초 간격
+
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun onCreate() {
         super.onCreate()
 
         prefs = getSharedPreferences("steps", Context.MODE_PRIVATE)
 
-        // [추가] 오늘 날짜 기준으로 baseline 초기화 (6보 지연 문제 해결 핵심)
         val todayStr = LocalDate.now().toString()
         val savedDate = prefs.getString("date", "")
 
         if (savedDate != todayStr) {
             prefs.edit()
-                .putInt("baseline", -1)                // baseline 초기화
-                .putInt("todaySteps", 0)               // 오늘 걸음수 초기화
-                .putBoolean("baseline_initialized", false)  // 첫 이벤트에서 baseline 다시 잡기
-                .putString("date", todayStr)           // 날짜 업데이트
+                .putInt("baseline", -1)
+                .putInt("todaySteps", 0)
+                .putBoolean("baseline_initialized", false)
+                .putString("date", todayStr)
                 .apply()
         }
 
-        // 기존 로직
         baseline = prefs.getInt("baseline", -1)
         todaySteps = prefs.getInt("todaySteps", 0)
         lastDate = prefs.getString("date", "") ?: ""
-
-        val serverToday = prefs.getInt("serverToday", -1)
-
-        // 앱 재시작 시 서버 값 적용
-        if (serverToday >= 0 && todaySteps == 0) {
-            todaySteps = serverToday
-        }
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         stepCounter = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
 
         createNotificationChannel()
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
                 NOTIFICATION_ID,
@@ -86,7 +89,7 @@ class StepService : Service(), SensorEventListener {
         val cumulative = event.values[0].toInt()
         val todayStr = LocalDate.now().toString()
 
-        // 자정이면 초기화
+        // 자정 리셋
         if (lastDate != todayStr) {
             baseline = cumulative
             todaySteps = 0
@@ -100,42 +103,39 @@ class StepService : Service(), SensorEventListener {
                 .apply()
 
             updateNotification(0)
+            log("MIDNIGHT RESET → baseline=$baseline / todaySteps=0")
             return
         }
 
-        val serverToday = prefs.getInt("serverToday", -1)
-
-        // 오늘 첫 이벤트라면 baseline 강제 설정
+        // baseline 초기 설정
         if (!prefs.getBoolean("baseline_initialized", false)) {
-
-            baseline = if (serverToday >= 0) {
-                cumulative - serverToday   // 서버값에서 이어가기
-            } else {
-                cumulative                 // 서버값 없으면 당일 0부터
-            }
-
-            if (baseline < 0) baseline = cumulative
-
+            baseline = cumulative
             prefs.edit()
                 .putInt("baseline", baseline)
                 .putBoolean("baseline_initialized", true)
                 .apply()
+
+            log("BASELINE INIT → cumulative=$cumulative / baseline=$baseline")
         }
 
-        // 오늘 누적 계산
+        // 오늘 걸음 계산
         val diff = cumulative - baseline
         todaySteps = if (diff >= 0) diff else 0
 
-        // 절대 baseline 보정 금지 → 값 튐/리셋 방지
-
         prefs.edit()
             .putInt("todaySteps", todaySteps)
-            .putString("date", todayStr)
             .apply()
 
         updateNotification(todaySteps)
-        //println("cumulative=$cumulative | baseline=$baseline | serverToday=$serverToday | todaySteps=$todaySteps")
 
+        // 센서 디버그 로그
+        log("EVENT → cumulative=$cumulative baseline=$baseline todaySteps=$todaySteps")
+
+        // 서버 자동 동기화
+        if (System.currentTimeMillis() - lastSyncTime > syncInterval) {
+            lastSyncTime = System.currentTimeMillis()
+            syncToServer(todaySteps)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -144,13 +144,46 @@ class StepService : Service(), SensorEventListener {
 
     override fun onDestroy() {
         sensorManager.unregisterListener(this)
+        scope.cancel()
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
-    // 📌 Notification Channel
+    private fun syncToServer(steps: Int) {
+        scope.launch {
+            try {
+                val prefs = getSharedPreferences("steps", Context.MODE_PRIVATE)
+                val userId = prefs.getInt("user_id", -1)
+                if (userId == -1) return@launch
+
+                val client = OkHttpClient()
+
+                val json = JSONObject()
+                json.put("steps", steps)
+                json.put("clientAt", LocalDate.now().toString())
+
+                val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
+
+                val req = Request.Builder()
+                    .url("http://marketalert.iptime.org:8080/api/steps/today")
+                    .put(body)
+                    .addHeader("X-User-Id", userId.toString())
+                    .build()
+
+                client.newCall(req).execute()
+                log("SERVER SYNC → steps=$steps")
+            } catch (e: Exception) {
+                log("SYNC ERROR → ${e.message}")
+            }
+        }
+    }
+
+    private fun log(msg: String) {
+        println("[StepService] $msg")
+    }
+
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -178,7 +211,6 @@ class StepService : Service(), SensorEventListener {
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
-            .setSilent(true)
             .build()
     }
 
