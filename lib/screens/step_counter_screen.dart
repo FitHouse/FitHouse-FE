@@ -261,6 +261,8 @@ class StepCounterScreenState extends State<StepCounterScreen>
       await Future.delayed(Duration(milliseconds: 200)); // 데이터 저장 안정화
 
       await platform.invokeMethod("prepareStepService");
+      await platform.invokeMethod("setUserId", {"userId": _myUserId});
+
 
     } catch (e) {
       debugPrint("걸음 수 서버 로드 실패: $e");
